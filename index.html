@@ -1,0 +1,2215 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Ecoute musicale - Enseignant (SPA)</title>
+  <script src="music_rituel_2025_2026_filled.js">
+// === PATCH: Edit wiring (robuste) ===
+(function(){
+  // Helpers
+  window.MUSIC_DATA = window.MUSIC_DATA || [];
+  function saveToLocal(){ try{ localStorage.setItem("MUSIC_DATA_JSON", JSON.stringify(window.MUSIC_DATA||[])); }catch(e){} }
+  function loadFromLocal(){ try{ const s=localStorage.getItem("MUSIC_DATA_JSON"); if(s){ const a=JSON.parse(s); if(Array.isArray(a)) return a; } }catch(e){} return (window.MUSIC_DATA||[]); }
+  function indexByDate(arr){ const m=new Map(); for(const x of arr){ if(x&&x.date){ m.set(x.date.slice(0,10), x); } } return m; }
+  function htmlEscape(s){ return String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+
+  // state
+  window.DATA = window.DATA || loadFromLocal();
+  let CURRENT_DATE = null;
+
+  function setEditMode(on){
+    const fields = document.getElementById("editFields");
+    const btnEdit = document.getElementById("editBtn");
+    const btnSave = document.getElementById("saveBtn");
+    const btnCancel = document.getElementById("cancelBtn");
+    if(fields) fields.classList.toggle("hidden", !on);
+    if(btnSave) btnSave.classList.toggle("hidden", !on);
+    if(btnCancel) btnCancel.classList.toggle("hidden", !on);
+    if(btnEdit) btnEdit.classList.toggle("hidden", on);
+  }
+
+  function saveEdit(){
+    if(!CURRENT_DATE) return;
+    const t   = (document.getElementById("editTitre")?.value   || "").trim();
+    const a   = (document.getElementById("editAuteur")?.value  || "").trim();
+    const o   = (document.getElementById("editOrigine")?.value || "").trim();
+    const ins = (document.getElementById("editInstr")?.value   || "").trim();
+    const yt  = (document.getElementById("editYT")?.value      || "").trim();
+
+    const idx = DATA.findIndex(x => x && x.date && x.date.slice(0,10) === CURRENT_DATE);
+    const obj = idx>=0 ? {...DATA[idx]} : {date: CURRENT_DATE};
+    if(t) { obj.title = t; obj.titre = t; }
+    if(a) { obj.author = a; obj.auteur = a; }
+    obj.origin = o; obj["origine (pays auteur)"] = o;
+    obj.instruments = ins;
+    obj.youtube = yt;
+
+    if(idx>=0) DATA[idx] = obj; else DATA.push(obj);
+    window.MUSIC_DATA = DATA;
+    saveToLocal();
+    if(typeof renderDetail === "function") renderDetail(CURRENT_DATE);
+    if(typeof renderCalendar === "function") renderCalendar();
+    setEditMode(false);
+  }
+
+  function bindEditButtons(){
+    const editBtn = document.getElementById("editBtn");
+    const saveBtn = document.getElementById("saveBtn");
+    const cancelBtn = document.getElementById("cancelBtn");
+    if(editBtn && !editBtn.__bound){ editBtn.__bound = true; editBtn.addEventListener("click", ()=> setEditMode(true)); }
+    if(saveBtn && !saveBtn.__bound){ saveBtn.__bound = true; saveBtn.addEventListener("click", saveEdit); }
+    if(cancelBtn && !cancelBtn.__bound){ cancelBtn.__bound = true; cancelBtn.addEventListener("click", ()=> setEditMode(false)); }
+  }
+
+  // Extend renderDetail to prefill & wire
+  const prevRenderDetail = window.renderDetail;
+  window.renderDetail = function(dateStr){
+    CURRENT_DATE = dateStr;
+    if(prevRenderDetail) prevRenderDetail(dateStr);
+    const map = indexByDate(DATA);
+    const item = map.get(dateStr) || {};
+    const get = (k) => item[k] || item[k.toLowerCase()] || "";
+    const et = document.getElementById("editTitre");   if(et) et.value = get("title") || get("titre");
+    const ea = document.getElementById("editAuteur");  if(ea) ea.value = get("author") || get("auteur");
+    const eo = document.getElementById("editOrigine"); if(eo) eo.value = get("origin") || get("origine (pays auteur)");
+    const ei = document.getElementById("editInstr");   if(ei) ei.value = get("instruments");
+    const ey = document.getElementById("editYT");      if(ey) ey.value = get("youtube") || get("lien youtube");
+    setEditMode(false);
+    bindEditButtons();
+  };
+
+  // Initial bind & also try later once (for browsers delaying DOM)
+  document.addEventListener("DOMContentLoaded", ()=>{
+    bindEditButtons();
+    setTimeout(bindEditButtons, 300);
+  });
+})();
+
+</script>
+  <script src="https://cdn.tailwindcss.com">
+// === PATCH: Edit wiring (robuste) ===
+(function(){
+  // Helpers
+  window.MUSIC_DATA = window.MUSIC_DATA || [];
+  function saveToLocal(){ try{ localStorage.setItem("MUSIC_DATA_JSON", JSON.stringify(window.MUSIC_DATA||[])); }catch(e){} }
+  function loadFromLocal(){ try{ const s=localStorage.getItem("MUSIC_DATA_JSON"); if(s){ const a=JSON.parse(s); if(Array.isArray(a)) return a; } }catch(e){} return (window.MUSIC_DATA||[]); }
+  function indexByDate(arr){ const m=new Map(); for(const x of arr){ if(x&&x.date){ m.set(x.date.slice(0,10), x); } } return m; }
+  function htmlEscape(s){ return String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+
+  // state
+  window.DATA = window.DATA || loadFromLocal();
+  let CURRENT_DATE = null;
+
+  function setEditMode(on){
+    const fields = document.getElementById("editFields");
+    const btnEdit = document.getElementById("editBtn");
+    const btnSave = document.getElementById("saveBtn");
+    const btnCancel = document.getElementById("cancelBtn");
+    if(fields) fields.classList.toggle("hidden", !on);
+    if(btnSave) btnSave.classList.toggle("hidden", !on);
+    if(btnCancel) btnCancel.classList.toggle("hidden", !on);
+    if(btnEdit) btnEdit.classList.toggle("hidden", on);
+  }
+
+  function saveEdit(){
+    if(!CURRENT_DATE) return;
+    const t   = (document.getElementById("editTitre")?.value   || "").trim();
+    const a   = (document.getElementById("editAuteur")?.value  || "").trim();
+    const o   = (document.getElementById("editOrigine")?.value || "").trim();
+    const ins = (document.getElementById("editInstr")?.value   || "").trim();
+    const yt  = (document.getElementById("editYT")?.value      || "").trim();
+
+    const idx = DATA.findIndex(x => x && x.date && x.date.slice(0,10) === CURRENT_DATE);
+    const obj = idx>=0 ? {...DATA[idx]} : {date: CURRENT_DATE};
+    if(t) { obj.title = t; obj.titre = t; }
+    if(a) { obj.author = a; obj.auteur = a; }
+    obj.origin = o; obj["origine (pays auteur)"] = o;
+    obj.instruments = ins;
+    obj.youtube = yt;
+
+    if(idx>=0) DATA[idx] = obj; else DATA.push(obj);
+    window.MUSIC_DATA = DATA;
+    saveToLocal();
+    if(typeof renderDetail === "function") renderDetail(CURRENT_DATE);
+    if(typeof renderCalendar === "function") renderCalendar();
+    setEditMode(false);
+  }
+
+  function bindEditButtons(){
+    const editBtn = document.getElementById("editBtn");
+    const saveBtn = document.getElementById("saveBtn");
+    const cancelBtn = document.getElementById("cancelBtn");
+    if(editBtn && !editBtn.__bound){ editBtn.__bound = true; editBtn.addEventListener("click", ()=> setEditMode(true)); }
+    if(saveBtn && !saveBtn.__bound){ saveBtn.__bound = true; saveBtn.addEventListener("click", saveEdit); }
+    if(cancelBtn && !cancelBtn.__bound){ cancelBtn.__bound = true; cancelBtn.addEventListener("click", ()=> setEditMode(false)); }
+  }
+
+  // Extend renderDetail to prefill & wire
+  const prevRenderDetail = window.renderDetail;
+  window.renderDetail = function(dateStr){
+    CURRENT_DATE = dateStr;
+    if(prevRenderDetail) prevRenderDetail(dateStr);
+    const map = indexByDate(DATA);
+    const item = map.get(dateStr) || {};
+    const get = (k) => item[k] || item[k.toLowerCase()] || "";
+    const et = document.getElementById("editTitre");   if(et) et.value = get("title") || get("titre");
+    const ea = document.getElementById("editAuteur");  if(ea) ea.value = get("author") || get("auteur");
+    const eo = document.getElementById("editOrigine"); if(eo) eo.value = get("origin") || get("origine (pays auteur)");
+    const ei = document.getElementById("editInstr");   if(ei) ei.value = get("instruments");
+    const ey = document.getElementById("editYT");      if(ey) ey.value = get("youtube") || get("lien youtube");
+    setEditMode(false);
+    bindEditButtons();
+  };
+
+  // Initial bind & also try later once (for browsers delaying DOM)
+  document.addEventListener("DOMContentLoaded", ()=>{
+    bindEditButtons();
+    setTimeout(bindEditButtons, 300);
+  });
+})();
+
+</script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
+// === PATCH: Edit wiring (robuste) ===
+(function(){
+  // Helpers
+  window.MUSIC_DATA = window.MUSIC_DATA || [];
+  function saveToLocal(){ try{ localStorage.setItem("MUSIC_DATA_JSON", JSON.stringify(window.MUSIC_DATA||[])); }catch(e){} }
+  function loadFromLocal(){ try{ const s=localStorage.getItem("MUSIC_DATA_JSON"); if(s){ const a=JSON.parse(s); if(Array.isArray(a)) return a; } }catch(e){} return (window.MUSIC_DATA||[]); }
+  function indexByDate(arr){ const m=new Map(); for(const x of arr){ if(x&&x.date){ m.set(x.date.slice(0,10), x); } } return m; }
+  function htmlEscape(s){ return String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+
+  // state
+  window.DATA = window.DATA || loadFromLocal();
+  let CURRENT_DATE = null;
+
+  function setEditMode(on){
+    const fields = document.getElementById("editFields");
+    const btnEdit = document.getElementById("editBtn");
+    const btnSave = document.getElementById("saveBtn");
+    const btnCancel = document.getElementById("cancelBtn");
+    if(fields) fields.classList.toggle("hidden", !on);
+    if(btnSave) btnSave.classList.toggle("hidden", !on);
+    if(btnCancel) btnCancel.classList.toggle("hidden", !on);
+    if(btnEdit) btnEdit.classList.toggle("hidden", on);
+  }
+
+  function saveEdit(){
+    if(!CURRENT_DATE) return;
+    const t   = (document.getElementById("editTitre")?.value   || "").trim();
+    const a   = (document.getElementById("editAuteur")?.value  || "").trim();
+    const o   = (document.getElementById("editOrigine")?.value || "").trim();
+    const ins = (document.getElementById("editInstr")?.value   || "").trim();
+    const yt  = (document.getElementById("editYT")?.value      || "").trim();
+
+    const idx = DATA.findIndex(x => x && x.date && x.date.slice(0,10) === CURRENT_DATE);
+    const obj = idx>=0 ? {...DATA[idx]} : {date: CURRENT_DATE};
+    if(t) { obj.title = t; obj.titre = t; }
+    if(a) { obj.author = a; obj.auteur = a; }
+    obj.origin = o; obj["origine (pays auteur)"] = o;
+    obj.instruments = ins;
+    obj.youtube = yt;
+
+    if(idx>=0) DATA[idx] = obj; else DATA.push(obj);
+    window.MUSIC_DATA = DATA;
+    saveToLocal();
+    if(typeof renderDetail === "function") renderDetail(CURRENT_DATE);
+    if(typeof renderCalendar === "function") renderCalendar();
+    setEditMode(false);
+  }
+
+  function bindEditButtons(){
+    const editBtn = document.getElementById("editBtn");
+    const saveBtn = document.getElementById("saveBtn");
+    const cancelBtn = document.getElementById("cancelBtn");
+    if(editBtn && !editBtn.__bound){ editBtn.__bound = true; editBtn.addEventListener("click", ()=> setEditMode(true)); }
+    if(saveBtn && !saveBtn.__bound){ saveBtn.__bound = true; saveBtn.addEventListener("click", saveEdit); }
+    if(cancelBtn && !cancelBtn.__bound){ cancelBtn.__bound = true; cancelBtn.addEventListener("click", ()=> setEditMode(false)); }
+  }
+
+  // Extend renderDetail to prefill & wire
+  const prevRenderDetail = window.renderDetail;
+  window.renderDetail = function(dateStr){
+    CURRENT_DATE = dateStr;
+    if(prevRenderDetail) prevRenderDetail(dateStr);
+    const map = indexByDate(DATA);
+    const item = map.get(dateStr) || {};
+    const get = (k) => item[k] || item[k.toLowerCase()] || "";
+    const et = document.getElementById("editTitre");   if(et) et.value = get("title") || get("titre");
+    const ea = document.getElementById("editAuteur");  if(ea) ea.value = get("author") || get("auteur");
+    const eo = document.getElementById("editOrigine"); if(eo) eo.value = get("origin") || get("origine (pays auteur)");
+    const ei = document.getElementById("editInstr");   if(ei) ei.value = get("instruments");
+    const ey = document.getElementById("editYT");      if(ey) ey.value = get("youtube") || get("lien youtube");
+    setEditMode(false);
+    bindEditButtons();
+  };
+
+  // Initial bind & also try later once (for browsers delaying DOM)
+  document.addEventListener("DOMContentLoaded", ()=>{
+    bindEditButtons();
+    setTimeout(bindEditButtons, 300);
+  });
+})();
+
+</script>
+  <style>
+    .day{aspect-ratio:1/1}
+    .badge{display:inline-block;padding:.1rem .4rem;border-radius:9999px;background:#eef2ff;color:#312e81;font-size:.75rem;margin-left:.25rem}
+    .scrollbar-thin{scrollbar-width:thin}
+    .link{color:#4f46e5;text-decoration:underline}
+  </style>
+<style>#viewCalendar #editBtn{display:none!important;}</style>
+<style>
+/* === Fun theme CM1-CM2 === */
+body{background: linear-gradient(180deg, #f8fafc 0%, #f0f9ff 100%);} 
+.header-title{display:flex; align-items:center; gap:.5rem}
+.header-title .spark{font-size:1.6rem}
+.card{border-radius:1rem; box-shadow:0 8px 24px rgba(2,6,23,.06);}
+.fun-badge{display:inline-flex; align-items:center; gap:.35rem; padding:.25rem .5rem; border-radius:9999px; background:#eef2ff; color:#3730a3; font-weight:600; font-size:.75rem}
+.fun-badge .dot{width:.5rem; height:.5rem; border-radius:50%; background:#6366f1}
+h1,h2{letter-spacing:.2px}
+</style>
+</head>
+\1
+
+<!-- Toolbar: Effacer le calendrier -->
+<div class="max-w-6xl mx-auto px-6 mt-4 flex justify-end">
+  <button onclick="resetCalendarUI()" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg shadow transition">
+    🗑️ Effacer le calendrier
+  </button>
+</div>
+
+  <div class="max-w-6xl mx-auto p-4 md:p-6">
+    <header class="flex flex-col md:flex-row md:items-end gap-3 justify-between">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-black header-title"><span class="spark">✨</span> Ecoute musicale - Enseignant <span class="fun-badge"><span class="dot"></span></span></h1>
+        <p class="text-slate-600">Calendrier + Fiche combinés • Les données viennent de votre Excel importé (persisté en local).</p>
+      </div>
+      <div class="flex flex-wrap gap-2 items-center">
+        
+        <button id="navCalendar" class="px-3 py-2 rounded-xl bg-slate-800 text-white">Calendrier</button>
+        <button id="navExport" class="px-3 py-2 rounded-xl bg-blue-600 text-white">Exporter Excel</button>
+        <a class="px-3 py-2 rounded-xl bg-indigo-600 text-white" href="fiche_ecoute.pdf" target="_blank">📄 Fiche élève (PDF)</a>
+      </div>
+    </header>
+
+    <!-- Import -->
+    <section class="mt-4 rounded-2xl border bg-white shadow p-4 space-y-3 card">
+      <h2 class="font-bold">📥 Import Excel / CSV</h2>
+      <div class="grid md:grid-cols-3 gap-3">
+        <div class="md:col-span-2">
+          <input id="file" type="file" accept=".xlsx,.xls,.csv" class="text-sm"/>
+          <p class="text-xs text-slate-600 mt-1">
+            Colonnes minimales : <code>date</code>, <code>titre</code>, <code>auteur</code>. Optionnel : <code>origine (pays auteur)</code>, <code>instruments</code>, <code>youtube</code> / <code>lien youtube</code>.
+          </p>
+          <p id="importStatus" class="text-xs text-emerald-700 mt-1"></p>
+        </div>
+        <div class="text-sm text-slate-600">
+          <div>Après import : les données sont mémorisées et utilisées partout (fiche incluse).</div>
+          <div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Vue Calendrier -->
+    <section id="viewCalendar" class="mt-4 rounded-2xl border bg-white shadow p-4 card">
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex gap-2">
+          <button id="editBtn" class="px-3 py-2 rounded-xl bg-amber-500 text-white">✏️ Modifier</button>
+          <button id="saveBtn" class="hidden px-3 py-2 rounded-xl bg-emerald-600 text-white">💾 Enregistrer</button>
+          <button id="cancelBtn" class="hidden px-3 py-2 rounded-xl bg-slate-300 text-slate-800">Annuler</button>
+        </div>
+        <div>
+          <div class="text-slate-500 text-sm">Année scolaire</div>
+          <div id="yearLbl" class="text-lg font-semibold">—</div>
+        </div>
+        <div class="text-sm text-slate-500">Total morceaux ce mois : <span id="countMonth">0</span></div>
+      </div>
+
+      <div class="flex items-center gap-2 mt-2">
+        <button id="prev" class="px-3 py-2 rounded-xl bg-slate-800 text-white">◀ Mois préc.</button>
+        <div id="monthLbl" class="px-3 py-2 rounded-xl bg-white border">—</div>
+        <button id="next" class="px-3 py-2 rounded-xl bg-slate-800 text-white">Mois suiv. ▶</button>
+      </div>
+      <div id="grid" class="mt-3 grid grid-cols-7 gap-2"></div>
+
+      <div class="mt-4">
+        <h3 class="font-semibold mb-2">Morceaux du mois <span class="badge" id="badgeMonth">—</span></h3>
+        <div id="list" class="max-h-64 overflow-auto pr-2 scrollbar-thin"></div>
+      </div>
+    </section>
+
+    <!-- Vue Fiche (v2: photo auteur + YouTube + Google Map) -->
+    <section id="viewDetail" class="hidden mt-4 rounded-2xl border bg-white shadow p-5 space-y-3 card">
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex gap-2">
+          <button id="editBtn" class="px-3 py-2 rounded-xl bg-amber-500 text-white">✏️ Modifier</button>
+          <button id="saveBtn" class="hidden px-3 py-2 rounded-xl bg-emerald-600 text-white">💾 Enregistrer</button>
+          <button id="cancelBtn" class="hidden px-3 py-2 rounded-xl bg-slate-300 text-slate-800">Annuler</button>
+        </div>
+        <button id="backBtn" class="px-3 py-2 rounded-xl bg-slate-800 text-white">⬅ Retour au calendrier</button>
+        <div class="text-slate-500 text-sm">Date</div>
+        <div id="dateLbl" class="text-lg font-semibold">—</div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <div>
+          <div class="text-slate-500 text-sm">Titre</div>
+          <div id="titre" class="text-xl font-bold">—</div>
+        </div>
+        <div>
+          <div class="text-slate-500 text-sm">Auteur / Artiste</div>
+          <div id="auteur" class="text-xl font-semibold">—</div>
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <div>
+          <div class="text-slate-500 text-sm flex items-center gap-2">Origine (pays auteur) <span id="flagIcon" class="text-2xl"></span></div>
+          <div id="origine" class="text-base">—</div>
+        </div>
+        <div>
+          <div class="text-slate-500 text-sm">Instruments</div>
+          <div id="instruments" class="text-base">—</div>
+          <button id="toggleInstr" class="mt-2 text-xs underline text-slate-600">Masquer/Afficher les instruments</button>
+        </div>
+      </div>
+
+      
+      <div id="editFields" class="hidden mt-2 rounded-xl bg-slate-50 border p-3 space-y-3">
+        <div class="grid md:grid-cols-2 gap-3">
+          <label class="text-sm">Titre
+            <input id="editTitre" type="text" class="mt-1 w-full border rounded px-2 py-1"/>
+          </label>
+          <label class="text-sm">Auteur / Artiste
+            <input id="editAuteur" type="text" class="mt-1 w-full border rounded px-2 py-1"/>
+          </label>
+        </div>
+        <div class="grid md:grid-cols-2 gap-3">
+          <label class="text-sm">Origine (pays auteur)
+            <input id="editOrigine" type="text" class="mt-1 w-full border rounded px-2 py-1"/>
+          </label>
+          <label class="text-sm">Instruments (séparés par des virgules)
+            <input id="editInstr" type="text" class="mt-1 w-full border rounded px-2 py-1"/>
+          </label>
+        </div>
+        <label class="text-sm block">Lien YouTube
+          <input id="editYT" type="url" class="mt-1 w-full border rounded px-2 py-1" placeholder="https://www.youtube.com/watch?v=..."/>
+        </label>
+        <div class="text-xs text-slate-500">Astuce : mets un lien <code>youtube.com/watch?v=…</code> ou <code>youtu.be/…</code>.</div>
+      </div>
+
+      <div class="mt-2">
+        <div class="text-slate-500 text-sm">Lien YouTube</div>
+        <div id="ytWrap" class="mt-1"></div>
+      </div>
+    
+      <div class="mt-4 grid md:grid-cols-2 gap-4">
+        <div>
+          <div class="text-slate-500 text-sm">YouTube (intégré)</div>
+          <div class="aspect-video rounded-xl border overflow-hidden bg-black">
+            <iframe id="ytFrame" width="100%" height="100%" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+          </div>
+        </div>
+        <div>
+          <div class="text-slate-500 text-sm">Carte (origine)</div>
+          <div class="aspect-video rounded-xl border overflow-hidden bg-slate-200">
+            <iframe id="mapFrame" width="100%" height="100%" frameborder="0" scrolling="no" marginheight="0" marginwidth="0"></iframe>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <div class="text-slate-500 text-sm">Photo de l’auteur / artiste</div>
+        <div class="rounded-xl border p-3 bg-slate-50 flex items-center gap-3">
+          <img id="authorImg" src="" alt="Photo auteur" class="w-24 h-24 rounded-lg object-cover bg-white border" />
+          <div class="text-sm text-slate-600">
+            <div id="authorImgStatus" class="text-xs text-slate-500">Recherche d’une image sur Wikipédia…</div>
+            <div id="authorImgCredit" class="text-xs text-slate-400"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+<script>
+
+// ===== Utils =====
+function htmlEscape(s){ return String(s??"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+function pad(n){ return String(n).padStart(2,"0"); }
+function monthLabel(y,m){
+  const noms=["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+  return noms[m]+" "+y;
+}
+function lowerNoAccents(s){ return String(s||"").normalize("NFD").replace(/\p{Diacritic}+/gu,"").toLowerCase().trim(); }
+function norm(s){ return (s||"").toString().trim(); }
+
+// ===== Data (localStorage d'abord, fallback JS) =====
+window.MUSIC_DATA = window.MUSIC_DATA || [];
+function saveToLocal(){ try{ localStorage.setItem("MUSIC_DATA_JSON", JSON.stringify(window.MUSIC_DATA||[])); }catch(e){} }
+function loadFromLocal(){
+  try{ const s = localStorage.getItem("MUSIC_DATA_JSON"); if(s){ const arr=JSON.parse(s); if(Array.isArray(arr)) return arr; } }catch(e){}
+  return (window.MUSIC_DATA||[]);
+}
+function indexByDate(arr){ const m=new Map(); for(const x of arr){ if(x && x.date){ m.set(x.date.slice(0,10), x); } } return m; }
+
+let DATA = loadFromLocal();
+let dataMap = indexByDate(DATA);
+
+// ===== Import =====
+const importStatus = document.getElementById("importStatus");
+async function readFileArrayBuffer(file){
+  if(file.arrayBuffer){ return await file.arrayBuffer(); }
+  return await new Promise((resolve, reject)=>{ const fr=new FileReader(); fr.onload=()=>resolve(fr.result); fr.onerror=()=>reject(fr.error); fr.readAsArrayBuffer(file); });
+}
+async function readFileText(file){
+  if(file.text){ return await file.text(); }
+  return await new Promise((resolve, reject)=>{ const fr=new FileReader(); fr.onload=()=>resolve(fr.result); fr.onerror=()=>reject(fr.error); fr.readAsText(file,"utf-8"); });
+}
+function mapHeaders(hdr){
+  const low = hdr.map(h=> lowerNoAccents(String(h||"")));
+  function findOne(names){ for(const name of names){ const idx=low.indexOf(lowerNoAccents(name)); if(idx>=0) return idx; } return -1; }
+  return {
+    date: findOne(["date","jour","day"]),
+    titre: findOne(["titre","title","morceau","oeuvre","œuvre","piece"]),
+    auteur: findOne(["auteur","artiste","artist","groupe","interprete","interpret"]),
+    origin: findOne(["origine (pays auteur)","origine","pays"]),
+    instr: findOne(["instruments","instrument"]),
+    yt: findOne(["youtube","lien youtube","url youtube","lien"]),
+  };
+}
+function toISODate(v){
+  if (v == null) return "";
+  // Excel serial number
+  if (typeof v === "number" && window.XLSX && XLSX.SSF && XLSX.SSF.parse_date_code){
+    try{
+      const d = XLSX.SSF.parse_date_code(v);
+      if (d && d.y && d.m && d.d){
+        const Y = String(d.y).padStart(4,"0");
+        const M = String(d.m).padStart(2,"0");
+        const D = String(d.d).padStart(2,"0");
+        return `${Y}-${M}-${D}`;
+      }
+    }catch(e){}
+  }
+  let s = String(v).trim();
+  let m = s.match(/^(\d{2})[\/-](\d{2})[\/-](\d{4})$/);
+  if (m){ const [_, dd, mm, yyyy] = m; return `${yyyy}-${mm}-${dd}`; }
+  m = s.match(/^(\d{4})[\/-](\d{2})[\/-](\d{2})$/);
+  if (m){ const [_, yyyy, mm, dd] = m; return `${yyyy}-${mm}-${dd}`; }
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  return "";
+}
+
+async function importFile(file){
+  const ext = (file.name.split(".").pop()||"").toLowerCase();
+  let rows=[];
+  try{
+    if(ext==="csv"){
+      const txt = await readFileText(file);
+      rows = txt.split(/\r?\n/).filter(Boolean).map(line=> line.split(",").map(x=>x.replace(/^"|"$/g,"")));
+    }else{
+      const buf = await readFileArrayBuffer(file);
+      const wb = XLSX.read(buf, {type:"array"});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      rows = XLSX.utils.sheet_to_json(ws, {header:1});
+    }
+  }catch(e){
+    importStatus.textContent = "Erreur de lecture : " + e;
+    return;
+  }
+  if(!rows.length){ importStatus.textContent = "Fichier vide."; return; }
+  const hdr = (rows[0]||[]).map(x=> String(x||"").trim());
+  const map = mapHeaders(hdr);
+  if(map.date<0 || map.titre<0 || map.auteur<0){ importStatus.textContent = "Colonnes minimales manquantes : date, titre, auteur."; return; }
+
+  let inserted=0;
+  // Replace: start fresh
+  dataMap = new Map();
+  for(const r of rows.slice(1)){
+    const date = toISODate(r[map.date]);
+    if(!date) continue;
+    const obj = {
+      date,
+      title: norm(r[map.titre]),
+      auteur: norm(r[map.auteur]) || norm(r[map.author]),
+      author: norm(r[map.auteur]) || norm(r[map.author]),
+      origin: map.origin>=0 ? norm(r[map.origin]) : "",
+      instruments: map.instr>=0 ? norm(r[map.instr]) : "",
+      youtube: map.yt>=0 ? norm(r[map.yt]) : "",
+    };
+    dataMap.set(date, obj);
+    inserted++;
+  }
+  DATA = Array.from(dataMap.values()).sort((a,b)=> (a.date<b.date?-1:1));
+  window.MUSIC_DATA = DATA;
+  saveToLocal();
+  importStatus.textContent = `Import terminé : ${inserted} entrées chargées.`;
+  renderCalendar(); // refresh
+}
+
+// ===== Export =====
+function exportXLSX(){
+  const hdr = ["date","titre","auteur","origine (pays auteur)","instruments","youtube"];
+  const arr = [hdr];
+  for(const x of DATA){
+    arr.push([
+      x.date||"",
+      x.title || x.titre || "",
+      x.author || x.auteur || "",
+      x.origin || x["origine (pays auteur)"] || "",
+      x.instruments || "",
+      x.youtube || x["lien youtube"] || ""
+    ]);
+  }
+  const ws = XLSX.utils.aoa_to_sheet(arr);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "morceaux");
+  XLSX.writeFile(wb, "morceaux_utilises.xlsx");
+}
+document.getElementById("navExport").addEventListener("click", exportXLSX);
+document.getElementById("file").addEventListener("change", async (e)=>{ const f=e.target.files?.[0]; resetCalendarUI(); if(!f) return; importStatus.textContent="Lecture…"; await importFile(f); });
+
+// ===== Calendrier =====
+const grid = document.getElementById("grid");
+
+if(grid){ grid.innerHTML=''; window.__gridCleared__=true; }grid.innerHTML=''; window.__gridCleared__ = true;const list = document.getElementById("list");
+const monthLbl = document.getElementById("monthLbl");
+const yearLbl = document.getElementById("yearLbl");
+const badgeMonth = document.getElementById("badgeMonth");
+const countMonth = document.getElementById("countMonth");
+let cur = new Date();
+let curY = cur.getUTCFullYear(), curM = cur.getUTCMonth();
+
+function renderCalendar(){
+  try{ if(!window.__gridCleared__){ resetCalendarUI(); } }catch(e){}
+  try{ if(!window.__gridCleared__){ resetCalendarUI(); } }catch(e){}
+  // reindex map
+  dataMap = indexByDate(DATA);
+  monthLbl.textContent = monthLabel(curY, curM);
+  yearLbl.textContent = curY + "–" + (curY+1);
+  badgeMonth.textContent = monthLabel(curY, curM);
+  grid.innerHTML = "";
+  list.innerHTML = "";
+
+  const first = new Date(Date.UTC(curY, curM, 1));
+  const startDay = (first.getUTCDay() + 6) % 7; // lundi=0
+  const daysInMonth = new Date(Date.UTC(curY, curM+1, 0)).getUTCDate();
+
+  for(let i=0;i<startDay;i++){
+    const div = document.createElement("div");
+    div.className = "day rounded-xl bg-slate-100 border";
+    grid.appendChild(div);
+  }
+
+  let usedThisMonth = 0;
+  for(let d=1; d<=daysInMonth; d++){
+    const dateStr = `${curY}-${pad(curM+1)}-${pad(d)}`;
+    const item = dataMap.get(dateStr);
+    const has = !!item;
+
+    const cell = document.createElement("button");
+    cell.type="button";
+    cell.className = "day rounded-xl border w-full text-left p-2 " + (has ? "bg-emerald-50 border-emerald-200" : "bg-white");
+    cell.innerHTML = `<div class="text-xs text-slate-500">${d}</div>` + (has ? `<div class="mt-1 font-semibold text-sm line-clamp-3">${htmlEscape(item.title || item.titre || "Titre")}</div><div class="text-xs text-slate-500 line-clamp-1">${htmlEscape(item.author || item.auteur || "")}</div>` : `<div class="text-xs text-slate-400 mt-1">—</div>`);
+    cell.addEventListener("click", ()=>{
+      location.hash = "#/date=" + dateStr; // route vers fiche
+    });
+    grid.appendChild(cell);
+
+    if(has){
+      usedThisMonth++;
+      const row = document.createElement("div");
+      row.className = "px-2 py-1 rounded hover:bg-slate-50 text-sm flex items-center justify-between";
+      row.innerHTML = `<div><span class="text-slate-500 text-xs">${dateStr}</span> — <b>${htmlEscape(item.title || item.titre || "Titre")}</b> <span class="text-slate-600">(${htmlEscape(item.author || item.auteur || "Auteur")})</span></div>
+      <a class="text-indigo-600 underline text-xs" href="#/date=${encodeURIComponent(dateStr)}">ouvrir</a>`;
+      list.appendChild(row);
+    }
+  }
+  countMonth.textContent = usedThisMonth;
+}
+document.getElementById("prev").addEventListener("click", ()=>{ curM--; if(curM<0){curM=11;curY--;} renderCalendar(); });
+document.getElementById("next").addEventListener("click", ()=>{ curM++; if(curM>11){curM=0;curY++;} renderCalendar(); });
+document.getElementById("navCalendar").addEventListener("click", ()=>{ location.hash = "#/"; });
+renderCalendar();
+
+// ===== Fiche =====
+function renderDetail(dateStr){
+  const data = indexByDate(DATA);
+  const item = data.get(dateStr) || {};
+  document.getElementById("dateLbl").textContent = dateStr || "—";
+  document.getElementById("titre").textContent = item.title || item.titre || "—";
+  document.getElementById("auteur").textContent = item.author || item.auteur || "—";
+  document.getElementById("origine").textContent = item.origin || item["origine (pays auteur)"] || "—";
+  document.getElementById("instruments").textContent = item.instruments || "—";
+
+  const wrap = document.getElementById("ytWrap"); wrap.innerHTML="";
+  const url = item.youtube || item["lien youtube"] || "";
+  if(url){
+    const a = document.createElement("a");
+    a.href = url; a.target="_blank"; a.className="link";
+    a.textContent = "Ouvrir sur YouTube";
+    wrap.appendChild(a);
+  }else{
+    wrap.innerHTML = '<span class="text-slate-500 text-sm">Pas de lien YouTube</span>';
+  }
+}
+
+// Masquer/afficher instruments
+(function(){
+  const btn = document.getElementById("toggleInstr");
+  const el = document.getElementById("instruments");
+  let visible = true;
+  btn.addEventListener("click", ()=>{ visible=!visible; el.style.visibility = visible ? "visible" : "hidden"; });
+})();
+
+document.getElementById("backBtn").addEventListener("click", ()=>{ location.hash = "#/"; });
+
+
+// ===== Media helpers (YouTube, Map, Author Image) =====
+function toYouTubeEmbed(url){
+  if(!url) return "";
+  try{
+    const u = new URL(url);
+    // youtu.be/<id>
+    if(u.hostname.includes("youtu.be")){
+      const id = u.pathname.replace("/","");
+      return "https://www.youtube.com/embed/" + id;
+    }
+    // youtube.com/watch?v=<id>
+    if(u.hostname.includes("youtube.com")){
+      const id = u.searchParams.get("v");
+      if(id) return "https://www.youtube.com/embed/" + id;
+      // playlist or others: try to keep as is
+      return "https://www.youtube.com/embed/";
+    }
+  }catch(e){}
+  return "";
+}
+
+function toMapEmbed(place){
+  if(!place) return "";
+  // Utilise l'URL d'intégration libre de Google Maps sans clé
+  // NB: nécessite internet au moment de l'affichage
+  const q = encodeURIComponent(place);
+  return "https://www.google.com/maps?q=" + q + "&output=embed";
+}
+
+// Cache pour images d'auteur (localStorage)
+function cacheGet(key){
+  try{ const s=localStorage.getItem(key); if(!s) return null; return JSON.parse(s); }catch(e){ return null; }
+}
+function cacheSet(key, val){
+  try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){}
+}
+
+async function fetchAuthorImage(author){
+  const statusEl = document.getElementById("authorImgStatus");
+  const creditEl = document.getElementById("authorImgCredit");
+  const imgEl = document.getElementById("authorImg");
+  const name = (author||"").trim();
+  if(!name){ imgEl.src=""; statusEl.textContent="Aucun auteur."; return; }
+
+  const CACHE_KEY = "AUTHOR_IMG_" + name.toLowerCase();
+  const cached = cacheGet(CACHE_KEY);
+  if(cached && cached.url){
+    imgEl.src = cached.url;
+    statusEl.textContent = "Image mise en cache.";
+    creditEl.textContent = cached.credit || "";
+    return;
+  }
+
+  statusEl.textContent = "Recherche sur Wikipédia FR…";
+  // 1) Wikipédia FR
+  try{
+    const url = "https://fr.wikipedia.org/w/api.php?action=query&format=json&origin=*&prop=pageimages|info&inprop=url&piprop=thumbnail&pithumbsize=400&titles=" + encodeURIComponent(name);
+    const r = await fetch(url);
+    if(r.ok){
+      const j = await r.json();
+      const pages = j?.query?.pages || {};
+      const first = Object.values(pages)[0];
+      const thumb = first?.thumbnail?.source;
+      if(thumb){
+        imgEl.src = thumb;
+        statusEl.textContent = "Image trouvée sur Wikipédia (FR).";
+        creditEl.textContent = first?.fullurl ? ("Source : " + first.fullurl) : "";
+        cacheSet(CACHE_KEY, {url: thumb, credit: creditEl.textContent});
+        return;
+      }
+    }
+  }catch(e){}
+
+  statusEl.textContent = "Recherche sur Wikipédia EN…";
+  // 2) Wikipédia EN
+  try{
+    const url = "https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&prop=pageimages|info&inprop=url&piprop=thumbnail&pithumbsize=400&titles=" + encodeURIComponent(name);
+    const r = await fetch(url);
+    if(r.ok){
+      const j = await r.json();
+      const pages = j?.query?.pages || {};
+      const first = Object.values(pages)[0];
+      const thumb = first?.thumbnail?.source;
+      if(thumb){
+        imgEl.src = thumb;
+        statusEl.textContent = "Image trouvée sur Wikipédia (EN).";
+        creditEl.textContent = first?.fullurl ? ("Source : " + first.fullurl) : "";
+        cacheSet(CACHE_KEY, {url: thumb, credit: creditEl.textContent});
+        return;
+      }
+    }
+  }catch(e){}
+
+  // 3) Échec
+  imgEl.src = "";
+  statusEl.textContent = "Aucune image trouvée automatiquement.";
+  creditEl.textContent = "";
+}
+
+// Étend renderDetail pour renseigner les iframes + image
+const __renderDetailOrig = renderDetail;
+renderDetail = function(dateStr){
+  __renderDetailOrig(dateStr);
+
+  const data = indexByDate(DATA);
+  const item = data.get(dateStr) || {};
+  // YouTube
+  const yt = item.youtube || item["lien youtube"] || "";
+  const ytSrc = toYouTubeEmbed(yt);
+  const ytFrame = document.getElementById("ytFrame");
+  ytFrame.src = ytSrc || "";
+  // Maps
+  const origin = item.origin || item["origine (pays auteur)"] || "";
+  const mapSrc = toMapEmbed(origin);
+  const mapFrame = document.getElementById("mapFrame");
+  mapFrame.src = mapSrc || "";
+  // Photo auteur
+  const author = item.author || item.auteur || "";
+  fetchAuthorImage(author);
+};
+
+
+// ===== Edition (v2_edit) =====
+let CURRENT_DATE = null;
+function htmlEscape(s){ return String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+
+// Persist helpers already exist in v2 for MUSIC_DATA; ensure they do:
+window.MUSIC_DATA = window.MUSIC_DATA || [];
+function saveToLocal(){ try{ localStorage.setItem("MUSIC_DATA_JSON", JSON.stringify(window.MUSIC_DATA||[])); }catch(e){} }
+function loadFromLocal(){
+  try{ const s = localStorage.getItem("MUSIC_DATA_JSON"); if(s){ const a = JSON.parse(s); if(Array.isArray(a)) return a; } }catch(e){}
+  return (window.MUSIC_DATA||[]);
+}
+function indexByDate(arr){ const m=new Map(); for(const x of arr){ if(x&&x.date){ m.set(x.date.slice(0,10), x);} } return m; }
+
+// Hook existing DATA structures if present, else build from MUSIC_DATA
+if(typeof DATA === "undefined"){ window.DATA = loadFromLocal(); }
+if(typeof dataMap === "undefined"){ window.dataMap = indexByDate(DATA); }
+
+function setEditMode(on){
+  const fields = document.getElementById("editFields");
+  const btnEdit = document.getElementById("editBtn");
+  const btnSave = document.getElementById("saveBtn");
+  const btnCancel = document.getElementById("cancelBtn");
+  if(fields) fields.classList.toggle("hidden", !on);
+  if(btnSave) btnSave.classList.toggle("hidden", !on);
+  if(btnCancel) btnCancel.classList.toggle("hidden", !on);
+  if(btnEdit) btnEdit.classList.toggle("hidden", on);
+}
+
+function bindEditButtons(){
+  const editBtn = document.getElementById("editBtn");
+  const saveBtn = document.getElementById("saveBtn");
+  const cancelBtn = document.getElementById("cancelBtn");
+  if(editBtn && !editBtn.__bound){ editBtn.__bound = true; editBtn.addEventListener("click", ()=> setEditMode(true)); }
+  if(cancelBtn && !cancelBtn.__bound){ cancelBtn.__bound = true; cancelBtn.addEventListener("click", ()=> setEditMode(false)); }
+  if(saveBtn && !saveBtn.__bound){ saveBtn.__bound = true; saveBtn.addEventListener("click", saveEdit); }
+}
+
+function saveEdit(){
+  if(!CURRENT_DATE) return;
+  const t   = (document.getElementById("editTitre").value   || "").trim();
+  const a   = (document.getElementById("editAuteur").value  || "").trim();
+  const o   = (document.getElementById("editOrigine").value || "").trim();
+  const ins = (document.getElementById("editInstr").value   || "").trim();
+  const yt  = (document.getElementById("editYT").value      || "").trim();
+
+  const idx = DATA.findIndex(x => x && x.date && x.date.slice(0,10) === CURRENT_DATE);
+  const obj = idx>=0 ? {...DATA[idx]} : {date: CURRENT_DATE};
+  if(t) { obj.title = t; obj.titre = t; }
+  if(a) { obj.author = a; obj.auteur = a; }
+  obj.origin = o; obj["origine (pays auteur)"] = o;
+  obj.instruments = ins;
+  obj.youtube = yt;
+
+  if(idx>=0) DATA[idx] = obj; else DATA.push(obj);
+  window.MUSIC_DATA = DATA;
+  saveToLocal();
+  if(typeof renderDetail === "function") renderDetail(CURRENT_DATE);
+  if(typeof renderCalendar === "function") renderCalendar();
+  setEditMode(false);
+}
+
+// Extend renderDetail to prefill fields + keep previous logic
+(function(){
+  const prev = window.renderDetail;
+  window.renderDetail = function(dateStr){
+    CURRENT_DATE = dateStr;
+    if(prev) prev(dateStr);
+    const data = indexByDate(DATA);
+    const item = data.get(dateStr) || {};
+    const get = (k) => item[k] || item[k.toLowerCase()] || "";
+    document.getElementById("editTitre").value   = get("title") || get("titre");
+    document.getElementById("editAuteur").value  = get("author") || get("auteur");
+    document.getElementById("editOrigine").value = get("origin") || get("origine (pays auteur)");
+    document.getElementById("editInstr").value   = get("instruments");
+    document.getElementById("editYT").value      = get("youtube") || get("lien youtube");
+    setEditMode(false);
+    bindEditButtons();
+  };
+})();
+
+// Ensure bindings at startup (if already on a fiche)
+document.addEventListener("DOMContentLoaded", bindEditButtons);
+
+// ===== Router (hash) =====
+function parseHash(){
+  const h = location.hash || "#/";
+  if(h.startsWith("#/date=")){
+    const d = decodeURIComponent(h.slice(7));
+    document.getElementById("viewCalendar").classList.add("hidden");
+    document.getElementById("viewDetail").classList.remove("hidden");
+    renderDetail(d);
+  }else{
+    document.getElementById("viewDetail").classList.add("hidden");
+    document.getElementById("viewCalendar").classList.remove("hidden");
+    renderCalendar();
+  }
+}
+window.addEventListener("hashchange", parseHash);
+parseHash();
+
+// === PATCH: Edit wiring (robuste) ===
+(function(){
+  // Helpers
+  window.MUSIC_DATA = window.MUSIC_DATA || [];
+  function saveToLocal(){ try{ localStorage.setItem("MUSIC_DATA_JSON", JSON.stringify(window.MUSIC_DATA||[])); }catch(e){} }
+  function loadFromLocal(){ try{ const s=localStorage.getItem("MUSIC_DATA_JSON"); if(s){ const a=JSON.parse(s); if(Array.isArray(a)) return a; } }catch(e){} return (window.MUSIC_DATA||[]); }
+  function indexByDate(arr){ const m=new Map(); for(const x of arr){ if(x&&x.date){ m.set(x.date.slice(0,10), x); } } return m; }
+  function htmlEscape(s){ return String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+
+  // state
+  window.DATA = window.DATA || loadFromLocal();
+  let CURRENT_DATE = null;
+
+  function setEditMode(on){
+    const fields = document.getElementById("editFields");
+    const btnEdit = document.getElementById("editBtn");
+    const btnSave = document.getElementById("saveBtn");
+    const btnCancel = document.getElementById("cancelBtn");
+    if(fields) fields.classList.toggle("hidden", !on);
+    if(btnSave) btnSave.classList.toggle("hidden", !on);
+    if(btnCancel) btnCancel.classList.toggle("hidden", !on);
+    if(btnEdit) btnEdit.classList.toggle("hidden", on);
+  }
+
+  function saveEdit(){
+    if(!CURRENT_DATE) return;
+    const t   = (document.getElementById("editTitre")?.value   || "").trim();
+    const a   = (document.getElementById("editAuteur")?.value  || "").trim();
+    const o   = (document.getElementById("editOrigine")?.value || "").trim();
+    const ins = (document.getElementById("editInstr")?.value   || "").trim();
+    const yt  = (document.getElementById("editYT")?.value      || "").trim();
+
+    const idx = DATA.findIndex(x => x && x.date && x.date.slice(0,10) === CURRENT_DATE);
+    const obj = idx>=0 ? {...DATA[idx]} : {date: CURRENT_DATE};
+    if(t) { obj.title = t; obj.titre = t; }
+    if(a) { obj.author = a; obj.auteur = a; }
+    obj.origin = o; obj["origine (pays auteur)"] = o;
+    obj.instruments = ins;
+    obj.youtube = yt;
+
+    if(idx>=0) DATA[idx] = obj; else DATA.push(obj);
+    window.MUSIC_DATA = DATA;
+    saveToLocal();
+    if(typeof renderDetail === "function") renderDetail(CURRENT_DATE);
+    if(typeof renderCalendar === "function") renderCalendar();
+    setEditMode(false);
+  }
+
+  function bindEditButtons(){
+    const editBtn = document.getElementById("editBtn");
+    const saveBtn = document.getElementById("saveBtn");
+    const cancelBtn = document.getElementById("cancelBtn");
+    if(editBtn && !editBtn.__bound){ editBtn.__bound = true; editBtn.addEventListener("click", ()=> setEditMode(true)); }
+    if(saveBtn && !saveBtn.__bound){ saveBtn.__bound = true; saveBtn.addEventListener("click", saveEdit); }
+    if(cancelBtn && !cancelBtn.__bound){ cancelBtn.__bound = true; cancelBtn.addEventListener("click", ()=> setEditMode(false)); }
+  }
+
+  // Extend renderDetail to prefill & wire
+  const prevRenderDetail = window.renderDetail;
+  window.renderDetail = function(dateStr){
+    CURRENT_DATE = dateStr;
+    if(prevRenderDetail) prevRenderDetail(dateStr);
+    const map = indexByDate(DATA);
+    const item = map.get(dateStr) || {};
+    const get = (k) => item[k] || item[k.toLowerCase()] || "";
+    const et = document.getElementById("editTitre");   if(et) et.value = get("title") || get("titre");
+    const ea = document.getElementById("editAuteur");  if(ea) ea.value = get("author") || get("auteur");
+    const eo = document.getElementById("editOrigine"); if(eo) eo.value = get("origin") || get("origine (pays auteur)");
+    const ei = document.getElementById("editInstr");   if(ei) ei.value = get("instruments");
+    const ey = document.getElementById("editYT");      if(ey) ey.value = get("youtube") || get("lien youtube");
+    setEditMode(false);
+    bindEditButtons();
+  };
+
+  // Initial bind & also try later once (for browsers delaying DOM)
+  document.addEventListener("DOMContentLoaded", ()=>{
+    bindEditButtons();
+    setTimeout(bindEditButtons, 300);
+  });
+})();
+
+</script>
+
+<!-- PATCH v2_fix2: handlers délégués + garde-fous -->
+<script>
+(function(){
+  // Petite aide CSS si "hidden" n'est pas présent (sécurité)
+  try{
+    const st = document.createElement('style');
+    st.textContent = ".hidden{display:none !important;}";
+    document.head.appendChild(st);
+  }catch(e){}
+
+  // Etat courant
+  window.DATA = window.DATA || (function(){
+    try{ const s=localStorage.getItem("MUSIC_DATA_JSON"); if(s){ const a=JSON.parse(s); if(Array.isArray(a)) return a; } }catch(e){}
+    return (window.MUSIC_DATA||[]);
+  })();
+  let CURRENT_DATE = null;
+
+  function saveToLocal(){ try{ localStorage.setItem("MUSIC_DATA_JSON", JSON.stringify(window.DATA||[])); }catch(e){} }
+  function indexByDate(arr){ const m=new Map(); for(const x of arr){ if(x && x.date){ m.set(x.date.slice(0,10), x); } } return m; }
+  function setEditMode(on){
+    const fields = document.getElementById("editFields");
+    const btnEdit = document.getElementById("editBtn");
+    const btnSave = document.getElementById("saveBtn");
+    const btnCancel = document.getElementById("cancelBtn");
+    if(fields) fields.classList.toggle("hidden", !on);
+    if(btnSave) btnSave.classList.toggle("hidden", !on);
+    if(btnCancel) btnCancel.classList.toggle("hidden", !on);
+    if(btnEdit) btnEdit.classList.toggle("hidden", on);
+  }
+  function ensureDetailPrefill(dateStr){
+    CURRENT_DATE = dateStr;
+    const map = indexByDate(window.DATA);
+    const item = map.get(dateStr) || {};
+    const get = (k)=> item[k] || item[k.toLowerCase()] || "";
+    const et = document.getElementById("editTitre");   if(et) et.value = get("title") || get("titre") || "";
+    const ea = document.getElementById("editAuteur");  if(ea) ea.value = get("author") || get("auteur") || "";
+    const eo = document.getElementById("editOrigine"); if(eo) eo.value = get("origin") || get("origine (pays auteur)") || "";
+    const ei = document.getElementById("editInstr");   if(ei) ei.value = get("instruments") || "";
+    const ey = document.getElementById("editYT");      if(ey) ey.value = get("youtube") || get("lien youtube") || "";
+  }
+  // Sur changement de hash -> pré-remplir (au cas où le rendu a eu lieu)
+  window.addEventListener("hashchange", function(){
+    const h = location.hash||"#/";
+    if(h.startsWith("#/date=")){
+      const d = decodeURIComponent(h.slice(7));
+      setTimeout(()=> ensureDetailPrefill(d), 50);
+    }
+  });
+
+  function saveEdit(){
+    if(!CURRENT_DATE) return;
+    const t   = (document.getElementById("editTitre")?.value   || "").trim();
+    const a   = (document.getElementById("editAuteur")?.value  || "").trim();
+    const o   = (document.getElementById("editOrigine")?.value || "").trim();
+    const ins = (document.getElementById("editInstr")?.value   || "").trim();
+    const yt  = (document.getElementById("editYT")?.value      || "").trim();
+
+    const idx = window.DATA.findIndex(x => x && x.date && x.date.slice(0,10) === CURRENT_DATE);
+    const obj = idx>=0 ? {...window.DATA[idx]} : {date: CURRENT_DATE};
+    if(t) { obj.title = t; obj.titre = t; }
+    if(a) { obj.author = a; obj.auteur = a; }
+    obj.origin = o; obj["origine (pays auteur)"] = o;
+    obj.instruments = ins;
+    obj.youtube = yt;
+
+    if(idx>=0) window.DATA[idx] = obj; else window.DATA.push(obj);
+    window.MUSIC_DATA = window.DATA;
+    saveToLocal();
+
+    // Essaie d'appeler les fonctions d'origine si elles existent
+    try{ if(typeof renderDetail === "function") renderDetail(CURRENT_DATE); }catch(e){}
+    try{ if(typeof renderCalendar === "function") renderCalendar(); }catch(e){}
+    setEditMode(false);
+  }
+
+  // Délégation d'événements (fonctionne même si les boutons sont recréés)
+  document.addEventListener("click", function(ev){
+    const id = ev.target && ev.target.id;
+    if(id === "editBtn"){ ev.preventDefault(); setEditMode(true); }
+    if(id === "cancelBtn"){ ev.preventDefault(); setEditMode(false); }
+    if(id === "saveBtn"){ ev.preventDefault(); saveEdit(); }
+  }, true);
+
+  // Au 1er chargement sur une fiche, tente un pré-remplissage
+  document.addEventListener("DOMContentLoaded", function(){
+    const h = location.hash||"#/";
+    if(h.startsWith("#/date=")){
+      const d = decodeURIComponent(h.slice(7));
+      setTimeout(()=> ensureDetailPrefill(d), 80);
+    }
+  });
+})();
+</script>
+
+
+<!-- EXPORT XLSX (tout & fiche du jour) -->
+<script>
+(function(){
+  function toArray(DATA){
+    const hdr = ["date","titre","auteur","origine (pays auteur)","instruments","youtube"];
+    const rows = [hdr];
+    for(const x of (DATA||[])){
+      rows.push([
+        x.date||"",
+        x.title || x.titre || "",
+        x.author || x.auteur || "",
+        x.origin || x["origine (pays auteur)"] || "",
+        x.instruments || "",
+        x.youtube || x["lien youtube"] || ""
+      ]);
+    }
+    return rows;
+  }
+  function exportAll(){
+    try{
+      const rows = toArray(window.DATA || window.MUSIC_DATA || []);
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "morceaux");
+      XLSX.writeFile(wb, "morceaux_utilises.xlsx");
+    }catch(e){
+      alert("Erreur export : " + e);
+    }
+  }
+  function exportOne(){
+    try{
+      const hdr = ["date","titre","auteur","origine (pays auteur)","instruments","youtube"];
+      const d = (document.getElementById("dateLbl")?.textContent||"").trim();
+      // retrouve la fiche courante dans DATA
+      const arr = window.DATA || window.MUSIC_DATA || [];
+      const item = (arr||[]).find(x=> x && x.date && x.date.slice(0,10)===d) || {};
+      const row = [d, item.title || item.titre || "", item.author || item.auteur || "", item.origin || item["origine (pays auteur)"] || "", item.instruments || "", item.youtube || item["lien youtube"] || ""];
+      const ws = XLSX.utils.aoa_to_sheet([hdr, row]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "fiche");
+      const safeDate = d || "fiche";
+      XLSX.writeFile(wb, `fiche_${safeDate}.xlsx`);
+    }catch(e){
+      alert("Erreur export fiche : " + e);
+    }
+  }
+  // Bind
+  document.addEventListener("click", function(ev){
+    const id = ev.target && ev.target.id;
+    if(id==="navExport"){ ev.preventDefault(); exportAll(); }
+    if(id==="detailExportBtn"){ ev.preventDefault(); exportAll(); }
+    if(id==="detailExportOneBtn"){ ev.preventDefault(); exportOne(); }
+  }, true);
+})();
+</script>
+
+
+<!-- PATCH v2_fix3: source de vérité unique + rafraîchissement immédiat fiche/calendrier + export -->
+<script>
+(function(){
+  // ===== Store unifiée =====
+  function loadStore(){
+    try{ const s = localStorage.getItem("MUSIC_DATA_JSON"); if(s){ const a = JSON.parse(s); if(Array.isArray(a)) return a; } }catch(e){}
+    return (window.MUSIC_DATA || []);
+  }
+  function saveStore(arr){
+    try{ localStorage.setItem("MUSIC_DATA_JSON", JSON.stringify(arr||[])); }catch(e){}
+  }
+  function indexByDate(arr){
+    const m=new Map();
+    for(const x of arr||[]){ if(x && x.date){ m.set(x.date.slice(0,10), x); } }
+    return m;
+  }
+  window.DATA = loadStore(); // unique source
+  window.getDataMap = () => indexByDate(window.DATA);
+
+  // ===== Utilitaires UI =====
+  function toYouTubeEmbed(url){
+    if(!url) return "";
+    try{
+      const u = new URL(url);
+      if(u.hostname.includes("youtu.be")){
+        const id = u.pathname.replace("/","");
+        return "https://www.youtube.com/embed/" + id;
+      }
+      if(u.hostname.includes("youtube.com")){
+        const id = u.searchParams.get("v");
+        if(id) return "https://www.youtube.com/embed/" + id;
+        return "https://www.youtube.com/embed/";
+      }
+    }catch(e){}
+    return "";
+  }
+  function toMapEmbed(place){
+    if(!place) return "";
+    return "https://www.google.com/maps?q=" + encodeURIComponent(place) + "&output=embed";
+  }
+  function setText(id, v){ const el=document.getElementById(id); if(el) el.textContent = v || "—"; }
+
+  // ===== Override renderDetail pour forcer la lecture depuis DATA =====
+  const _renderDetailPrev = window.renderDetail;
+  window.renderDetail = function(dateStr){
+    const map = getDataMap();
+    const item = map.get(dateStr) || {};
+    // Champs texte
+    setText("dateLbl", dateStr);
+    setText("titre", item.title || item.titre);
+    setText("auteur", item.author || item.auteur);
+    setText("origine", item.origin || item["origine (pays auteur)"]);
+    setText("instruments", item.instruments);
+    // Médias
+    const yt = item.youtube || item["lien youtube"] || "";
+    const ytFrame = document.getElementById("ytFrame"); if(ytFrame) ytFrame.src = toYouTubeEmbed(yt) || "";
+    const origin = item.origin || item["origine (pays auteur)"] || "";
+    const mapFrame = document.getElementById("mapFrame"); if(mapFrame) mapFrame.src = toMapEmbed(origin) || "";
+    // Pré-remplir édition
+    const et=document.getElementById("editTitre");   if(et) et.value = item.title || item.titre || "";
+    const ea=document.getElementById("editAuteur");  if(ea) ea.value = item.author || item.auteur || "";
+    const eo=document.getElementById("editOrigine"); if(eo) eo.value = item.origin || item["origine (pays auteur)"] || "";
+    const ei=document.getElementById("editInstr");   if(ei) ei.value = item.instruments || "";
+    const ey=document.getElementById("editYT");      if(ey) ey.value = yt;
+    // Appel ancien si besoin (non destructif)
+    if(_renderDetailPrev && _renderDetailPrev!==window.renderDetail){
+      try{ _renderDetailPrev(dateStr); }catch(e){}
+    }
+  };
+
+  // ===== saveEdit fiable (maj DATA + localStorage + UI) =====
+  function showToast(msg){
+    let t = document.getElementById("toastSave");
+    if(!t){
+      t = document.createElement("div");
+      t.id = "toastSave";
+      t.style.position="fixed"; t.style.bottom="16px"; t.style.right="16px";
+      t.style.background="#10b981"; t.style.color="white"; t.style.padding="10px 14px";
+      t.style.borderRadius="12px"; t.style.boxShadow="0 10px 24px rgba(0,0,0,.15)";
+      t.style.fontSize="14px"; t.style.zIndex="9999";
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.style.opacity = "1";
+    setTimeout(()=>{ t.style.transition="opacity .6s"; t.style.opacity="0"; }, 1200);
+  }
+
+  function currentDateFromUI(){
+    return (document.getElementById("dateLbl")?.textContent || "").trim();
+  }
+
+  function saveEdit(){
+    const d = currentDateFromUI();
+    if(!d) return;
+    // lire champs
+    const t   = (document.getElementById("editTitre")?.value   || "").trim();
+    const a   = (document.getElementById("editAuteur")?.value  || "").trim();
+    const o   = (document.getElementById("editOrigine")?.value || "").trim();
+    const ins = (document.getElementById("editInstr")?.value   || "").trim();
+    const yt  = (document.getElementById("editYT")?.value      || "").trim();
+
+    // MAJ dans DATA
+    const idx = window.DATA.findIndex(x => x && x.date && x.date.slice(0,10)===d);
+    const obj = idx>=0 ? {...window.DATA[idx]} : {date: d};
+    if(t) { obj.title = t; obj.titre = t; }
+    if(a) { obj.author = a; obj.auteur = a; }
+    obj.origin = o; obj["origine (pays auteur)"] = o;
+    obj.instruments = ins;
+    obj.youtube = yt;
+    if(idx>=0) window.DATA[idx] = obj; else window.DATA.push(obj);
+
+    // Persistance immédiate
+    saveStore(window.DATA);
+
+    // Rafraîchir UI
+    if(typeof window.renderCalendar === "function"){ try{ window.renderCalendar(); }catch(e){} }
+    try{ window.renderDetail(d); }catch(e){}
+    // Quitter mode édition si bouton présent
+    try{
+      document.getElementById("editFields")?.classList.add("hidden");
+      document.getElementById("saveBtn")?.classList.add("hidden");
+      document.getElementById("cancelBtn")?.classList.add("hidden");
+      document.getElementById("editBtn")?.classList.remove("hidden");
+    }catch(e){}
+    showToast("Enregistré ✅");
+  }
+
+  // Délégation : capte clics sur boutons (Modifier/Enregistrer/Annuler) partout
+  document.addEventListener("click", function(ev){
+    const id = ev.target && ev.target.id;
+    if(id==="saveBtn"){ ev.preventDefault(); saveEdit(); }
+    if(id==="detailExportBtn"){ ev.preventDefault(); exportAll(); }
+    if(id==="detailExportOneBtn"){ ev.preventDefault(); exportOne(); }
+  }, true);
+
+  // ===== Export (tout & fiche) : utilise la DATA unifiée =====
+  function rowsAll(){
+    const hdr = ["date","titre","auteur","origine (pays auteur)","instruments","youtube"];
+    const rows = [hdr];
+    for(const x of (window.DATA||[])){
+      rows.push([
+        x.date||"",
+        x.title || x.titre || "",
+        x.author || x.auteur || "",
+        x.origin || x["origine (pays auteur)"] || "",
+        x.instruments || "",
+        x.youtube || x["lien youtube"] || ""
+      ]);
+    }
+    return rows;
+  }
+  window.exportAll = function(){
+    try{
+      const ws = XLSX.utils.aoa_to_sheet(rowsAll());
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "morceaux");
+      XLSX.writeFile(wb, "morceaux_utilises.xlsx");
+    }catch(e){ alert("Erreur export : " + e); }
+  };
+  window.exportOne = function(){
+    try{
+      const hdr = ["date","titre","auteur","origine (pays auteur)","instruments","youtube"];
+      const d = currentDateFromUI();
+      const map = getDataMap();
+      const item = map.get(d) || {};
+      const row = [d, item.title || item.titre || "", item.author || item.auteur || "", item.origin || item["origine (pays auteur)"] || "", item.instruments || "", item.youtube || item["lien youtube"] || ""];
+      const ws = XLSX.utils.aoa_to_sheet([hdr, row]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "fiche");
+      XLSX.writeFile(wb, `fiche_${d||"jour"}.xlsx`);
+    }catch(e){ alert("Erreur export fiche : " + e); }
+  };
+
+  // Si on arrive sur une fiche, garantit la lecture depuis DATA pour l'affichage initial
+  window.addEventListener("hashchange", function(){
+    const h = location.hash || "#/";
+    if(h.startsWith("#/date=")){
+      const d = decodeURIComponent(h.slice(7));
+      setTimeout(()=> window.renderDetail(d), 50);
+    }
+  });
+  // Si déjà sur une fiche au chargement
+  document.addEventListener("DOMContentLoaded", function(){
+    const h = location.hash || "#/";
+    if(h.startsWith("#/date=")){
+      const d = decodeURIComponent(h.slice(7));
+      setTimeout(()=> window.renderDetail(d), 80);
+    }
+  });
+})();
+</script>
+
+
+<!-- FIX4: boutons d'édition toujours visibles et fonctionnels -->
+<script>
+(function(){
+  function setEditMode(on){
+    const fields = document.getElementById("editFields");
+    const btnEdit = document.getElementById("editBtn");
+    const btnSave = document.getElementById("saveBtn");
+    const btnCancel = document.getElementById("cancelBtn");
+    if(fields) fields.classList.toggle("hidden", !on);
+    if(btnSave) btnSave.classList.toggle("hidden", !on);
+    if(btnCancel) btnCancel.classList.toggle("hidden", !on);
+    if(btnEdit) btnEdit.classList.toggle("hidden", on);
+  }
+
+  // Délégation: gère les clics même si la fiche est re-rendue
+  document.addEventListener("click", function(ev){
+    const id = ev.target && ev.target.id;
+    if(id==="editBtn"){ ev.preventDefault(); setEditMode(true); }
+    if(id==="cancelBtn"){ ev.preventDefault(); setEditMode(false); }
+    if(id==="saveBtn"){ ev.preventDefault(); if(window.saveEdit) window.saveEdit(); }
+  }, true);
+
+  // Afficher la barre d'édition si on arrive sur une fiche
+  function ensureToolbar(){
+    const toolbar = document.getElementById("editBtn");
+    if(!toolbar){
+      // rien à faire, la fiche n'est peut-être pas affichée encore
+    }
+  }
+  document.addEventListener("DOMContentLoaded", ensureToolbar);
+  window.addEventListener("hashchange", ensureToolbar);
+})();
+</script>
+
+
+<!-- FIX5: Bouton Enregistrer toujours visible en mode édition + sauvegarde globale accessible -->
+<style>
+  /* Barre flottante d'action (optionnelle) */
+  #saveBar{position:fixed; right:16px; bottom:16px; z-index:10000; display:none;}
+  #saveBar .btn{background:#059669; color:#fff; padding:10px 14px; border-radius:12px; box-shadow:0 10px 24px rgba(0,0,0,.15); font-weight:600;}
+</style>
+<div id="saveBar"><button id="saveBarBtn" class="btn">💾 Enregistrer</button></div>
+
+<script>
+(function(){
+  // Expose une API de sauvegarde globale si absente
+  if(typeof window.saveEdit !== "function"){
+    window.saveEdit = function(){
+      // Récupère la date depuis l'UI
+      const d = (document.getElementById("dateLbl")?.textContent || "").trim();
+      if(!d) return;
+      // Lecture des champs
+      const t   = (document.getElementById("editTitre")?.value   || "").trim();
+      const a   = (document.getElementById("editAuteur")?.value  || "").trim();
+      const o   = (document.getElementById("editOrigine")?.value || "").trim();
+      const ins = (document.getElementById("editInstr")?.value   || "").trim();
+      const yt  = (document.getElementById("editYT")?.value      || "").trim();
+      // Charge/MAJ DATA
+      let DATA = [];
+      try{ const s=localStorage.getItem("MUSIC_DATA_JSON"); if(s){ const arr=JSON.parse(s); if(Array.isArray(arr)) DATA = arr; } }catch(e){}
+      if(!Array.isArray(DATA) || !DATA) DATA = (window.DATA||window.MUSIC_DATA||[]);
+      const idx = DATA.findIndex(x => x && x.date && x.date.slice(0,10)===d);
+      const oobj = idx>=0 ? {...DATA[idx]} : {date:d};
+      if(t) { oobj.title=t; oobj.titre=t; }
+      if(a) { oobj.author=a; oobj.auteur=a; }
+      oobj.origin=o; oobj["origine (pays auteur)"]=o;
+      oobj.instruments=ins;
+      oobj.youtube=yt;
+      if(idx>=0) DATA[idx]=oobj; else DATA.push(oobj);
+      try{ localStorage.setItem("MUSIC_DATA_JSON", JSON.stringify(DATA)); }catch(e){}
+      window.DATA = DATA; window.MUSIC_DATA = DATA;
+
+      // Rafraîchir fiches + calendrier si dispo
+      try{ if(typeof window.renderCalendar==="function") window.renderCalendar(); }catch(e){}
+      try{ if(typeof window.renderDetail==="function") window.renderDetail(d); }catch(e){}
+
+      // Quitter mode édition visuellement
+      try{
+        document.getElementById("editFields")?.classList.add("hidden");
+        document.getElementById("saveBtn")?.classList.add("hidden");
+        document.getElementById("cancelBtn")?.classList.add("hidden");
+        document.getElementById("editBtn")?.classList.remove("hidden");
+        document.getElementById("saveBar").style.display="none";
+      }catch(e){}
+    };
+  }
+
+  // Force l'affichage des boutons d'édition quand on passe en mode édition
+  function setEditMode(on){
+    const fields = document.getElementById("editFields");
+    const btnEdit = document.getElementById("editBtn");
+    const btnSave = document.getElementById("saveBtn");
+    const btnCancel = document.getElementById("cancelBtn");
+    if(fields) fields.classList.toggle("hidden", !on);
+    if(btnSave) btnSave.classList.toggle("hidden", !on);
+    if(btnCancel) btnCancel.classList.toggle("hidden", !on);
+    if(btnEdit) btnEdit.classList.toggle("hidden", on);
+    // Affiche la barre flottante
+    const bar = document.getElementById("saveBar");
+    if(bar) bar.style.display = on ? "block" : "none";
+  }
+  // Délégation de clics
+  document.addEventListener("click", function(ev){
+    const id = ev.target && ev.target.id;
+    if(id==="editBtn"){ ev.preventDefault(); setEditMode(true); }
+    if(id==="cancelBtn"){ ev.preventDefault(); setEditMode(false); }
+    if(id==="saveBtn"){ ev.preventDefault(); window.saveEdit(); }
+    if(id==="saveBarBtn"){ ev.preventDefault(); window.saveEdit(); }
+  }, true);
+
+  // Dès qu'on modifie un champ, s'assurer que les boutons de sauvegarde sont visibles
+  function onAnyEdit(){
+    setEditMode(true);
+  }
+  ["editTitre","editAuteur","editOrigine","editInstr","editYT"].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el){
+      el.addEventListener("input", onAnyEdit);
+      el.addEventListener("change", onAnyEdit);
+    }
+  });
+  // En cas de rerendu de la fiche, rebrancher les handlers rapidement
+  window.addEventListener("hashchange", ()=>{
+    setTimeout(()=>{
+      ["editTitre","editAuteur","editOrigine","editInstr","editYT"].forEach(id=>{
+        const el = document.getElementById(id);
+        if(el){
+          el.addEventListener("input", onAnyEdit);
+          el.addEventListener("change", onAnyEdit);
+        }
+      });
+    }, 80);
+  });
+})();
+</script>
+
+
+<script>
+// === Flags & fun hooks ===
+(function(){
+  // Basic mapping from common country names (FR) to ISO codes
+  const COUNTRY_MAP = {
+    "france":"FR","république française":"FR",
+    "espagne":"ES","royaume d'espagne":"ES",
+    "italie":"IT",
+    "allemagne":"DE","germany":"DE","république fédérale d'allemagne":"DE",
+    "autriche":"AT",
+    "royaume-uni":"GB","royaume uni":"GB","angleterre":"GB","royaume-uni de grande-bretagne et d'irlande du nord":"GB","uk":"GB","gb":"GB","grande-bretagne":"GB","écosse":"GB","irlande du nord":"GB","pays de galles":"GB",
+    "irlande":"IE",
+    "pologne":"PL",
+    "hongrie":"HU",
+    "république tchèque":"CZ","tchéquie":"CZ",
+    "slovaquie":"SK",
+    "russie":"RU","fédération de russie":"RU",
+    "ukraine":"UA",
+    "finlande":"FI",
+    "norvège":"NO",
+    "suède":"SE",
+    "danemark":"DK",
+    "pays-bas":"NL","hollande":"NL",
+    "belgique":"BE",
+    "suisse":"CH",
+    "portugal":"PT",
+    "grèce":"GR",
+    "turquie":"TR",
+    "états-unis":"US","etats-unis":"US","usa":"US","états unis":"US","united states":"US","amérique":"US",
+    "canada":"CA",
+    "mexique":"MX",
+    "brésil":"BR",
+    "argentine":"AR",
+    "chili":"CL",
+    "pérou":"PE",
+    "chine":"CN",
+    "japon":"JP",
+    "corée du sud":"KR","corée":"KR","korea":"KR",
+    "inde":"IN",
+    "indonésie":"ID",
+    "australie":"AU",
+    "nouvelle-zélande":"NZ",
+    "islande":"IS",
+    "roumanie":"RO",
+    "bulgarie":"BG",
+    "serbie":"RS",
+    "croatie":"HR",
+    "slovénie":"SI",
+    "lituanie":"LT",
+    "lettonie":"LV",
+    "estonie":"EE",
+    "luxembourg":"LU",
+    "malte":"MT",
+    "chypre":"CY",
+    "arménie":"AM",
+    "géorgie":"GE",
+    "israël":"IL","israel":"IL",
+    "égypt":"EG","egypte":"EG","égypte":"EG",
+    "maroc":"MA",
+    "tunisie":"TN",
+    "algérie":"DZ",
+    "cuba":"CU"
+  };
+
+  function toFlagEmoji(countryCode){
+    if(!countryCode || countryCode.length!==2) return "";
+    const A = 0x1F1E6; // Regional Indicator Symbol Letter A
+    const code = countryCode.toUpperCase();
+    const first = code.charCodeAt(0) - 65 + A;
+    const second = code.charCodeAt(1) - 65 + A;
+    return String.fromCodePoint(first) + String.fromCodePoint(second);
+  }
+
+  function extractCountryCode(origin){
+    if(!origin) return "";
+    const s = origin.toLowerCase().normalize("NFD").replace(/\p{Diacritic}+/gu,"").trim();
+    // try exact map hit
+    if(COUNTRY_MAP[s]) return COUNTRY_MAP[s];
+    // try contains
+    for(const key of Object.keys(COUNTRY_MAP)){
+      if(s.includes(key)) return COUNTRY_MAP[key];
+    }
+    return "";
+  }
+
+  function refreshFlag(origin){
+    const el = document.getElementById("flagIcon");
+    if(!el) return;
+    const code = extractCountryCode(origin||"");
+    el.textContent = code ? toFlagEmoji(code) : "🏳️";
+    el.title = code || "";
+  }
+
+  // Hook into detail rendering by wrapping existing renderDetail if present
+  const prevRenderDetail = window.renderDetail;
+  window.renderDetail = function(dateStr){
+    if(prevRenderDetail) prevRenderDetail(dateStr);
+    // origin value from DOM (already set by prev function)
+    const origin = (document.getElementById("origine")?.textContent || "").trim();
+    refreshFlag(origin);
+  };
+
+  // Also when saving edits (if saveEdit exists)
+  const prevSave = window.saveEdit;
+  window.saveEdit = function(){
+    if(prevSave) prevSave();
+    const origin = (document.getElementById("origine")?.textContent || "").trim();
+    refreshFlag(origin);
+  };
+
+  // On first load, if a fiche is already open
+  document.addEventListener("DOMContentLoaded", () => {
+    const h = location.hash || "#/";
+    if(h.startsWith("#/date=")){
+      setTimeout(()=>{
+        const origin = (document.getElementById("origine")?.textContent || "").trim();
+        refreshFlag(origin);
+      }, 100);
+    }
+  });
+})();
+</script>
+
+
+<script>
+// === Lien Wikipédia cliquable sur l'auteur ===
+(function(){
+  function cacheGet(k){ try{ const s=localStorage.getItem(k); return s? JSON.parse(s): null; }catch(e){ return null; } }
+  function cacheSet(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+
+  async function wikipediaPageUrlFR(author){
+    const url = "https://fr.wikipedia.org/w/api.php?action=query&format=json&origin=*&prop=info&inprop=url&titles=" + encodeURIComponent(author);
+    const r = await fetch(url);
+    if(!r.ok) return null;
+    const j = await r.json();
+    const pages = j?.query?.pages || {};
+    const first = Object.values(pages)[0];
+    if(first && first.fullurl && !/Special:Search/.test(first.fullurl)) return first.fullurl;
+    return null;
+  }
+  async function wikipediaPageUrlEN(author){
+    const url = "https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&prop=info&inprop=url&titles=" + encodeURIComponent(author);
+    const r = await fetch(url);
+    if(!r.ok) return null;
+    const j = await r.json();
+    const pages = j?.query?.pages || {};
+    const first = Object.values(pages)[0];
+    if(first && first.fullurl && !/Special:Search/.test(first.fullurl)) return first.fullurl;
+    return null;
+  }
+
+  async function getWikipediaUrl(author){
+    const key = "WIKI_URL_" + author.toLowerCase();
+    const cached = cacheGet(key);
+    if(cached) return cached;
+    // FR then EN
+    let url = await wikipediaPageUrlFR(author);
+    if(!url) url = await wikipediaPageUrlEN(author);
+    if(!url) url = null;
+    cacheSet(key, url);
+    return url;
+  }
+
+  async function setAuthorLink(author){
+    const el = document.getElementById("auteur");
+    if(!el){ return; }
+    const name = (author||"").trim();
+    if(!name){ el.textContent = "—"; return; }
+    // Put a temporary text while resolving
+    el.textContent = name;
+    try{
+      const page = await getWikipediaUrl(name);
+      if(page){
+        el.innerHTML = '<a href="'+page.replace(/"/g,'&quot;')+'" target="_blank" class="underline text-indigo-600 hover:text-indigo-800">'+name+' ↗</a>';
+      }else{
+        el.textContent = name; // no link found
+      }
+    }catch(e){
+      el.textContent = name;
+    }
+  }
+
+  // Hook into renderDetail so it updates the author field as a link
+  const prevRenderDetail = window.renderDetail;
+  window.renderDetail = function(dateStr){
+    if(prevRenderDetail) prevRenderDetail(dateStr);
+    const author = (document.getElementById("auteur")?.textContent || "").trim();
+    setAuthorLink(author);
+  };
+
+  // After saveEdit, re-apply link in case author changed
+  const prevSave = window.saveEdit;
+  window.saveEdit = async function(){
+    if(prevSave) prevSave();
+    const author = (document.getElementById("auteur")?.textContent || "").trim();
+    setAuthorLink(author);
+  };
+
+  // If opening directly on a fiche
+  document.addEventListener("DOMContentLoaded", ()=>{
+    const h = location.hash || "#/";
+    if(h.startsWith("#/date=")){
+      setTimeout(()=>{
+        const author = (document.getElementById("auteur")?.textContent || "").trim();
+        setAuthorLink(author);
+      }, 120);
+    }
+  });
+})();
+</script>
+
+
+<!-- FIX10d: Chargement automatique de 'liste_defaut.xlsx' au démarrage -->
+<script>
+(function(){
+  // Import par AoA (array of arrays) -> logique identique à l'import manuel
+  function lowerNoAccents(s){ return String(s||"").normalize("NFD").replace(/\p{Diacritic}+/gu,"").toLowerCase().trim(); }
+  function norm(s){ return (s||"").toString().trim(); }
+  function indexByDate(arr){ const m=new Map(); for(const x of arr||[]){ if(x && x.date){ m.set(x.date.slice(0,10), x); } } return m; }
+  function saveToLocal(arr){ try{ localStorage.setItem("MUSIC_DATA_JSON", JSON.stringify(arr||[])); }catch(e){} }
+  function loadFromLocal(){ try{ const s=localStorage.getItem("MUSIC_DATA_JSON"); if(s){ const a=JSON.parse(s); if(Array.isArray(a)) return a; } }catch(e){} return (window.MUSIC_DATA||[]); }
+  function mapHeaders(hdr){
+    const low = hdr.map(h=> lowerNoAccents(String(h||"")));
+    function findOne(names){ for(const name of names){ const idx=low.indexOf(lowerNoAccents(name)); if(idx>=0) return idx; } return -1; }
+    return {
+      date: findOne(["date","jour","day"]),
+      titre: findOne(["titre","title","morceau","oeuvre","œuvre","piece"]),
+      auteur: findOne(["auteur","artiste","artist","groupe","interprete","interpret"]),
+      origin: findOne(["origine (pays auteur)","origine","pays"]),
+      instr: findOne(["instruments","instrument"]),
+      yt: findOne(["youtube","lien youtube","url youtube","lien"]),
+    };
+  }
+  function mergeRowsIntoData(rows){
+    if(!rows || !rows.length) return {updated:0,inserted:0};
+    const hdr = (rows[0]||[]).map(x=> String(x||"").trim());
+    const map = mapHeaders(hdr);
+    if(map.date<0 || map.titre<0 || map.auteur<0){
+      console.warn("[liste_defaut] colonnes minimales manquantes (date, titre, auteur).");
+      return {updated:0,inserted:0};
+    }
+    let DATA = loadFromLocal();
+    let dataMap = indexByDate(DATA);
+    let updated=0, inserted=0;
+    for(const r of rows.slice(1)){
+      const date = norm(r[map.date]).slice(0,10); if(!date) continue;
+      const obj = {
+        date,
+        title: norm(r[map.titre]),
+        auteur: norm(r[map.auteur]) || norm(r[map.author]),
+        author: norm(r[map.auteur]) || norm(r[map.author]),
+        origin: map.origin>=0 ? norm(r[map.origin]) : "",
+        instruments: map.instr>=0 ? norm(r[map.instr]) : "",
+        youtube: map.yt>=0 ? norm(r[map.yt]) : "",
+      };
+      if(dataMap.has(date)){ dataMap.set(date, {...dataMap.get(date), ...obj}); updated++; }
+      else { dataMap.set(date, obj); inserted++; }
+    }
+    DATA = Array.from(dataMap.values()).sort((a,b)=> (a.date<b.date?-1:1));
+    window.DATA = DATA; window.MUSIC_DATA = DATA;
+    saveToLocal(DATA);
+    if(typeof renderCalendar==="function"){ try{ renderCalendar(); }catch(e){} }
+    return {updated, inserted};
+  }
+
+  async function loadDefaultExcel(){
+    try{
+      const res = await fetch("liste_defaut.xlsx");
+      if(!res.ok){ console.info("[liste_defaut] non trouvé (status "+res.status+")."); return; }
+      const buf = await res.arrayBuffer();
+      if(typeof XLSX === "undefined"){ console.warn("[liste_defaut] XLSX non chargé."); return; }
+      const wb = XLSX.read(buf, {type:"array"});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1});
+try{ rows = normalizeImportedData(rows); }catch(e){}
+      const {updated, inserted} = mergeRowsIntoData(rows);
+      const s = document.getElementById("importStatus");
+      if(s){ s.textContent = `Chargement auto de la liste par défaut : ${updated} mis à jour, ${inserted} ajoutés.`; }
+    }catch(e){
+      console.warn("[liste_defaut] erreur chargement :", e);
+    }
+  }
+
+  // Démarrage : tenter de charger 'liste_defaut.xlsx' (même dossier que la page)
+  document.addEventListener("DOMContentLoaded", ()=>{
+    // Petit délai pour laisser Tailwind & autres scripts init
+    setTimeout(loadDefaultExcel, 150);
+  });
+})();
+</script>
+
+
+
+
+
+<!-- FIX10e-strong: autoload 'liste_defaut.xlsx' + messages clairs -->
+<script>
+(function(){
+  function showInfo(msg, type){
+    var bar = document.getElementById("importStatus");
+    if(!bar){
+      // crée une petite zone d’info sous la barre d’actions
+      var top = document.querySelector(".flex.flex-wrap.gap-2.items-center");
+      bar = document.createElement("div");
+      bar.id = "importStatus";
+      bar.style.marginTop = "8px";
+      bar.style.fontSize = "0.9rem";
+      bar.style.padding = "6px 10px";
+      bar.style.borderRadius = "10px";
+      bar.style.background = type==="error" ? "#fee2e2" : "#ecfeff";
+      bar.style.color = type==="error" ? "#991b1b" : "#0e7490";
+      if(top && top.parentNode){ top.parentNode.appendChild(bar); }
+      else { document.body.insertBefore(bar, document.body.firstChild); }
+    }
+    bar.textContent = msg;
+  }
+
+  function lowerNoAccents(s){ return String(s||"").normalize("NFD").replace(/\p{Diacritic}+/gu,"").toLowerCase().trim(); }
+  function norm(s){ return (s||"").toString().trim(); }
+  function indexByDate(arr){ const m=new Map(); for(const x of arr||[]){ if(x && x.date){ m.set(x.date.slice(0,10), x); } } return m; }
+  function saveToLocal(arr){ try{ localStorage.setItem("MUSIC_DATA_JSON", JSON.stringify(arr||[])); }catch(e){} }
+  function loadFromLocal(){ try{ const s=localStorage.getItem("MUSIC_DATA_JSON"); if(s){ const a=JSON.parse(s); if(Array.isArray(a)) return a; } }catch(e){} return (window.MUSIC_DATA||[]); }
+  function mapHeaders(hdr){
+    const low = hdr.map(h=> lowerNoAccents(String(h||"")));
+    function findOne(names){ for(const name of names){ const idx=low.indexOf(lowerNoAccents(name)); if(idx>=0) return idx; } return -1; }
+    return { date: findOne(["date","jour","day"]),
+             titre: findOne(["titre","title","morceau","oeuvre","œuvre","piece"]),
+             auteur: findOne(["auteur","artiste","artist","groupe","interprete","interpret"]),
+             origin: findOne(["origine (pays auteur)","origine","pays"]),
+             instr: findOne(["instruments","instrument"]),
+             yt: findOne(["youtube","lien youtube","url youtube","lien"]) };
+  }
+  function mergeRowsIntoData(rows){
+    if(!rows || !rows.length) return {updated:0,inserted:0};
+    const hdr = (rows[0]||[]).map(x=> String(x||"").trim());
+    const map = mapHeaders(hdr);
+    if(map.date<0 || map.titre<0 || map.auteur<0){ return {updated:0,inserted:0}; }
+    let DATA = loadFromLocal(); let dataMap = indexByDate(DATA); let updated=0, inserted=0;
+    for(const r of rows.slice(1)){
+      const date = norm(r[map.date]).slice(0,10); if(!date) continue;
+      const obj = { date,
+        title: norm(r[map.titre]),
+        auteur: norm(r[map.auteur]) || norm(r[map.author]),
+        author: norm(r[map.auteur]) || norm(r[map.author]),
+        origin: map.origin>=0 ? norm(r[map.origin]) : "",
+        instruments: map.instr>=0 ? norm(r[map.instr]) : "",
+        youtube: map.yt>=0 ? norm(r[map.yt]) : "" };
+      if(dataMap.has(date)){ dataMap.set(date, {...dataMap.get(date), ...obj}); updated++; }
+      else { dataMap.set(date, obj); inserted++; }
+    }
+    DATA = Array.from(dataMap.values()).sort((a,b)=> (a.date<b.date?-1:1));
+    window.DATA = DATA; window.MUSIC_DATA = DATA; saveToLocal(DATA);
+    if(typeof renderCalendar==="function"){ try{ renderCalendar(); }catch(e){} }
+    return {updated, inserted};
+  }
+
+  async function autoloadDefaultExcel(){
+    try{
+      if(typeof XLSX === "undefined"){ showInfo("Bibliothèque Excel (XLSX) non chargée : autoload ignoré.", "error"); return; }
+      // fetch relatif vers le même répertoire
+      const res = await fetch("liste_defaut.xlsx");
+      if(!res.ok){ showInfo("Aucun 'liste_defaut.xlsx' détecté (code "+res.status+"). La page s’ouvre normalement.", "error"); return; }
+      const buf = await res.arrayBuffer();
+      const wb = XLSX.read(buf, {type:"array"});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1});
+try{ rows = normalizeImportedData(rows); }catch(e){}
+      const {updated, inserted} = mergeRowsIntoData(rows);
+      showInfo(`Chargement auto de 'liste_defaut.xlsx' : ${updated} mis à jour, ${inserted} ajoutés.`, "ok");
+    }catch(e){
+      // Cas fréquent: file:// + restrictions du navigateur
+      showInfo("Impossible de lire 'liste_defaut.xlsx' automatiquement (contexte local). Ouvre le fichier via un petit serveur local ou utilise le bouton Import.", "error");
+      console.warn("[autoload] error:", e);
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function(){
+    // N'auto-charge que sur la version PROF (si le bouton élève est visible)
+    if(document.getElementById("makeStudentBtn")){
+      setTimeout(autoloadDefaultExcel, 200);
+    }
+  });
+})();
+</script>
+
+
+<script>
+// Fallback sans serveur : si autoload échoue, on propose automatiquement d'ouvrir le fichier
+(function(){
+  function activateFullDropZone(){
+    // Ajoute un dropzone global si non présent
+    var dz = document.getElementById("globalDropZone");
+    if(!dz){
+      dz = document.createElement("div");
+      dz.id = "globalDropZone";
+      dz.style.position = "fixed";
+      dz.style.inset = "0";
+      dz.style.border = "3px dashed #0ea5e9";
+      dz.style.borderRadius = "16px";
+      dz.style.display = "none";
+      dz.style.alignItems = "center";
+      dz.style.justifyContent = "center";
+      dz.style.background = "rgba(14,165,233,0.06)";
+      dz.style.zIndex = "9999";
+      dz.innerHTML = '<div style="font-size:1.1rem;color:#0e7490;background:#ecfeff;padding:10px 14px;border-radius:12px">Dépose ton fichier <b>liste_defaut.xlsx</b> ici</div>';
+      document.body.appendChild(dz);
+
+      ["dragenter","dragover"].forEach(function(evName){
+        window.addEventListener(evName, function(e){ e.preventDefault(); dz.style.display="flex"; });
+      });
+      ["dragleave","drop"].forEach(function(evName){
+        window.addEventListener(evName, function(e){ if(evName!=="drop") e.preventDefault(); if(evName==="drop") setTimeout(function(){dz.style.display="none";}, 250); else dz.style.display="none"; });
+      });
+    }
+  }
+
+  function openFilePicker(){
+    var input = document.getElementById("file");
+    if(input){
+      try { input.click(); } catch(e){}
+    }
+  }
+
+  // Ecoute un message d'échec venant du script d'autoload précédent
+  // On n'altère pas l'existant : on réagit juste en ouvrant le picker et en activant le drop.
+  document.addEventListener("DOMContentLoaded", function(){
+    activateFullDropZone();
+    // Si le bandeau importStatus contient l'erreur "Impossible de lire 'liste_defaut.xlsx' automatiquement"
+    var status = document.getElementById("importStatus");
+    if(status && /Impossible de lire 'liste_defaut\.xlsx' automatiquement/i.test(status.textContent||"")){
+      setTimeout(openFilePicker, 300);
+    }
+  });
+
+  // Exporte une fonction globale que le script d'autoload peut appeler en cas d'échec
+  window.__onAutoloadExcelFailed = function(){
+    activateFullDropZone();
+    openFilePicker();
+  };
+})();
+</script>
+
+
+<script src="liste_defaut.js"></script>
+
+<!-- Force FR date display (JJ-MM-AAAA) in calendar & detail -->
+<script>
+(function(){
+  function toFR(iso){
+    if(!iso || typeof iso!=="string") return iso||"";
+    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(!m) return iso;
+    return `${m[3]}-${m[2]}-${m[1]}`;
+  }
+  function replaceDateTextIn(root){
+    if(!root) return;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    const nodes = [];
+    while(walker.nextNode()){ nodes.push(walker.currentNode); }
+    for(const n of nodes){
+      const t = n.nodeValue;
+      if(!t) continue;
+      const newT = t.replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, (m,y,mo,d)=> `${d}-${mo}-${y}`);
+      if(newT !== t) n.nodeValue = newT;
+    }
+  }
+  function patchAreas(){
+    // calendar/list containers commonly used in these files
+    const ids = ["grid","list","viewCalendar","viewDetail","app","root","content"];
+    ids.forEach(id => { const el = document.getElementById(id); if(el) replaceDateTextIn(el); });
+  }
+  // Wrap renderCalendar to enforce FR formatting after each render
+  const _rc = window.renderCalendar;
+  window.renderCalendar = function(){
+    try{ if(typeof _rc === "function") _rc.apply(this, arguments); }catch(e){}
+    patchAreas();
+    setTimeout(patchAreas, 25);
+    setTimeout(patchAreas, 120);
+  };
+  // Wrap renderDetail similarly
+  const _rd = window.renderDetail;
+  window.renderDetail = function(){
+    try{ if(typeof _rd === "function") _rd.apply(this, arguments); }catch(e){}
+    const detail = document.getElementById("viewDetail") || document.body;
+    replaceDateTextIn(detail);
+    setTimeout(()=> replaceDateTextIn(detail), 60);
+  };
+  // Also handle initial load and navigation
+  document.addEventListener("DOMContentLoaded", ()=>{
+    patchAreas();
+    setTimeout(patchAreas, 30);
+  });
+  window.addEventListener("hashchange", ()=>{
+    patchAreas();
+    setTimeout(patchAreas, 30);
+  }, true);
+  // Observe for dynamic mutations
+  const obs = new MutationObserver(()=>{ patchAreas(); });
+  obs.observe(document.documentElement, {subtree:true, childList:true});
+})();
+</script>
+
+
+    <script>
+    // --- Injected: clear previous calendar before a new import/render ---
+    function resetCalendarUI(){
+  try { localStorage.removeItem("MUSIC_DATA_JSON"); } catch(e){}
+  try { window.MUSIC_DATA = []; } catch(e){}
+  try { window.DATA = []; } catch(e){}
+  try { if (typeof dataMap !== "undefined") { dataMap = new Map(); } } catch(e){}
+  try {
+    const grid = document.getElementById("grid");
+    const list = document.getElementById("list");
+    const monthLbl = document.getElementById("monthLbl");
+    const yearLbl = document.getElementById("yearLbl");
+    const countMonth = document.getElementById("countMonth");
+    if (grid) grid.innerHTML = "";
+    if (list) list.innerHTML = "";
+    if (monthLbl) monthLbl.textContent = "—";
+    if (yearLbl) yearLbl.textContent = "—";
+    if (countMonth) countMonth.textContent = "0";
+  } catch(e){}
+}
+grid.innerHTML=''; window.__gridCleared__ = true;if(grid){ grid.innerHTML = ''; }
+        // Optional: clear any selection/preview containers if present
+        const preview = document.getElementById('viewFiche') || document.getElementById('fiche');
+        if(preview){ /* keep content; only grid must be reset */ }
+        // Tag that we reset before repopulating
+        window.__gridCleared__ = true;
+      }catch(e){ /* noop */ }
+    }
+    </script>
+    
+
+<script>
+// === Helpers: normaliser les dates FR (JJ/MM/AAAA) depuis l'Excel ===
+(function(){
+  function isExcelSerial(n){
+    return typeof n === 'number' && isFinite(n) && n > 0 && n < 600000;
+  }
+  function fromExcelSerial(n){ // origin 1899-12-30 (comme XLSX)
+    const epoch = new Date(Date.UTC(1899, 11, 30));
+    const ms = Math.round(n * 86400000);
+    return new Date(epoch.getTime() + ms);
+  }
+  function parseDateFr(input){
+    if(!input && input!==0) return null;
+    // 1) Excel serial number
+    if(isExcelSerial(input)){
+      return fromExcelSerial(input);
+    }
+    // 2) Date object
+    if(Object.prototype.toString.call(input) === '[object Date]' && !isNaN(input)){
+      return input;
+    }
+    // 3) String "JJ/MM/AAAA" (ou "J/M/AAAA")
+    const s = String(input).trim();
+    const m = s.match(/^([0-3]?\d)[\/\.-]([0-1]?\d)[\/\.-](\d{4})$/);
+    if(m){
+      const d = parseInt(m[1],10), mo = parseInt(m[2],10)-1, y = parseInt(m[3],10);
+      const dt = new Date(y, mo, d); // local (Europe/Paris généralement)
+      if(dt && dt.getFullYear()===y && dt.getMonth()===mo && dt.getDate()===d) return dt;
+    }
+    // 4) ISO-like ""
+    const m2 = s.match(/^(\d{4})[-\/\.](\d{1,2})[-\/\.](\d{1,2})$/);
+    if(m2){
+      const y = parseInt(m2[1],10), mo = parseInt(m2[2],10)-1, d = parseInt(m2[3],10);
+      const dt = new Date(y, mo, d);
+      if(dt && dt.getFullYear()===y && dt.getMonth()===mo && dt.getDate()===d) return dt;
+    }
+    return null;
+  }
+  function toYmd(dt){
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth()+1).padStart(2,'0');
+    const d = String(dt.getDate()).padStart(2,'0');
+    return `${y}-${m}-${d}`;
+  }
+  // Détection souple des colonnes de date
+  const DATE_HEADERS = [
+    'date','jour','date du rituel','date jour','jour du rituel','jour/date'
+  ];
+  function looksLikeDateHeader(h){
+    const n = (h||'').toString().trim().toLowerCase();
+    return DATE_HEADERS.some(k => n.includes(k));
+  }
+  // Normaliser toutes les dates d'un tableau d'objets (data = rows du XLSX.utils.sheet_to_json)
+  window.normalizeImportedData = function(data){
+    if(!Array.isArray(data)) return data;
+    // 1) collect headers from first row keys
+    const keys = data.length ? Object.keys(data[0]) : [];
+    const dateKeys = keys.filter(k=> looksLikeDateHeader(k));
+    // Si aucune colonne évidente, on tentera des clés standard "Date"/"date"
+    if(dateKeys.length === 0){
+      ['Date','date','Jour','jour'].forEach(k=>{ if(keys.includes(k)) dateKeys.push(k); });
+    }
+    // 2) map rows
+    return data.map(row=>{
+      const r = { ...row };
+      for(const k of Object.keys(r)){
+        const val = r[k];
+        const maybeDate = (dateKeys.includes(k) || looksLikeDateHeader(k));
+        if(maybeDate){
+          const dt = parseDateFr(val);
+          if(dt){
+            // stocker au format YYYY-MM-DD (homogène pour le routeur/calendrier)
+            r[k] = toYmd(dt);
+          }
+        }
+      }
+      return r;
+    });
+  };
+})();
+</script>
+
+
+<script>
+// === Hard reset: clear previous calendar/list + common in-memory state ===
+(function(){
+  window.__RITMU__ = window.__RITMU__ || {};
+  window.__RITMU__.lastResetAt = Date.now();
+
+  window.resetCalendarUI = function resetCalendarUI(){
+    try{
+      // 1) Clear main containers if present
+      const ids = [
+        'grid','calendar','calendarGrid','calendar-body',
+        'list','liste','songList','songs','items','tableBody',
+        'days','months','weeks','ficheList','entries'
+      ];
+      ids.forEach(id => {
+        const el = document.getElementById(id);
+        if(el){ el.innerHTML = ''; }
+      });
+      // 2) Remove any .day or .cell nodes that might have been appended elsewhere
+      document.querySelectorAll('.day, .cell, .calendar-cell, .calendar-day').forEach(n=> n.remove());
+      // 3) Reset scroll position on main containers (cosmetic)
+      const grid = document.getElementById('grid');
+      
+if(grid){ grid.innerHTML=''; window.__gridCleared__=true; }if(grid){ grid.scrollTop = 0; grid.scrollLeft = 0; }
+      // 4) Clear in-memory arrays if found
+      ['CAL_DATA','CALENDAR','EVENTS','ITEMS','DATA','ROWS','STATE'].forEach(k=>{
+        if(window[k] && Array.isArray(window[k])) window[k] = [];
+      });
+      // 5) Mark reset flag
+      window.__gridCleared__ = true;
+    }catch(e){ /* ignore */ }
+  };
+
+  // Optional: clear persisted cache of previous import if any
+  window.resetImportedStorage = function resetImportedStorage(){
+    try{
+      // Heuristics: clear common keys used to persist imported data
+      const keys = Object.keys(localStorage);
+      keys.forEach(k=>{
+        if(/rituel|musique|excel|calend|fiche|import|items|rows|data/i.test(k)){
+          try{ localStorage.removeItem(k); }catch(e){}
+        }
+      });
+    }catch(e){ /* ignore */ }
+  };
+})();
+</script>
+
+
+<!-- === PATCH: Wiki links for instruments + Click-to-zoom author image (prof) === -->
+<style>
+#imgLightbox{ position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; align-items:center; justify-content:center; z-index:99999; }
+#imgLightbox img{ max-width:92vw; max-height:92vh; border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,.5); }
+#imgLightbox .close{ position:absolute; top:16px; right:16px; font-size:28px; color:#fff; cursor:pointer; }
+</style>
+<div id="imgLightbox" role="dialog" aria-modal="true" aria-label="Agrandissement image">
+  <span class="close" title="Fermer">✕</span>
+  <img id="imgLightboxImg" src="" alt="Agrandissement"/>
+</div>
+<script>
+(function(){
+  function wikiLinkifyInstruments(text){
+    if(!text) return "—";
+    const parts = String(text).split(/[,;\/]/).map(s => s.trim()).filter(Boolean);
+    if(!parts.length) return "—";
+    const makeUrl = (name)=> "https://fr.wikipedia.org/wiki/" + encodeURIComponent(name.replace(/\s+/g, "_"));
+    return parts.map(name => '<a class="underline text-indigo-700" href="'+makeUrl(name)+'" target="_blank" rel="noopener noreferrer">'+name+'</a>').join(", ");
+  }
+  function getFullImageFromThumb(url){
+    try{
+      if(!url) return "";
+      const u = new URL(url);
+      if(u.hostname.includes("wikimedia.org") && u.pathname.includes("/thumb/")){
+        const parts = u.pathname.split("/thumb/");
+        const left = parts[0];
+        const rest = parts[1];
+        const idx = rest.lastIndexOf("/");
+        if(idx > -1){
+          const basePath = rest.substring(0, idx);
+          return u.origin + left + "/" + basePath;
+        }
+      }
+    }catch(e){}
+    return url;
+  }
+  function setupAuthorImageZoom(){
+    const img = document.getElementById("authorImg");
+    const box = document.getElementById("imgLightbox");
+    const big = document.getElementById("imgLightboxImg");
+    const close = box ? box.querySelector(".close") : null;
+    if(!img || !box || !big) return;
+    function open(){
+      const src = img.getAttribute("src") || "";
+      const hi = getFullImageFromThumb(src);
+      big.setAttribute("src", hi || src);
+      box.style.display = "flex";
+    }
+    function closeBox(){
+      box.style.display = "none";
+      big.setAttribute("src","");
+    }
+    img.style.cursor = "zoom-in";
+    img.addEventListener("click", open);
+    if(close) close.addEventListener("click", closeBox);
+    box.addEventListener("click", function(ev){ if(ev.target===box) closeBox(); });
+    document.addEventListener("keydown", function(ev){ if(ev.key==="Escape") closeBox(); });
+  }
+  // Surcouche renderDetail: appliquer liens sur #instruments et préparer zoom
+  (function(){
+    const prev = window.renderDetail;
+    window.renderDetail = function(dateStr){
+      if(prev) prev(dateStr);
+      try{
+        const el = document.getElementById("instruments");
+        if(el){
+          const raw = el.textContent || el.innerText || "";
+          el.innerHTML = wikiLinkifyInstruments(raw);
+        }
+      }catch(e){}
+      try{ setupAuthorImageZoom(); }catch(e){}
+    };
+  })();
+  // Initial
+  document.addEventListener("DOMContentLoaded", function(){
+    setupAuthorImageZoom();
+    // si déjà sur une fiche
+    const h = location.hash || "#/";
+    if(h.startsWith("#/date=")){
+      setTimeout(function(){
+        const el = document.getElementById("instruments");
+        if(el){
+          const raw = el.textContent || el.innerText || "";
+          el.innerHTML = wikiLinkifyInstruments(raw);
+        }
+      }, 80);
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
