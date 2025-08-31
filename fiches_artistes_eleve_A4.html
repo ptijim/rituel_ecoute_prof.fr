@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fiches artistes — v17i (Générer OK + jambages + photos)</title>
+<style>
+  :root{
+    --ink:#0f172a; --muted:#334155; --line:#cbd5e1; --accent:#1d4ed8;
+    --paper:#ffffff; --chip:#f1f5f9;
+  }
+  *{box-sizing:border-box; max-width:100%}
+  html,body{margin:0;background:#eef2f7;color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Arial}
+  header{background:#fff;border-bottom:1px solid var(--line);padding:12px 16px;position:sticky;top:0;z-index:10}
+  h1{margin:0;font-size:20px}
+  .wrap{max-width:1024px;margin:0 auto;padding:12px;display:grid;gap:12px}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:end;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px}
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+  input,select,button{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#fff}
+  input[type="file"]{padding:6px}
+  button{cursor:pointer}
+  button.primary{background:var(--accent);color:#fff;border-color:#143ea5}
+  .status{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:13px}
+
+  .print-root{width:210mm;margin:0 auto}
+
+  .page{
+    width:210mm;height:297mm;background:#fff;
+    margin:0 auto 16px;padding:10mm;display:grid;grid-template-rows:repeat(4,1fr);gap:5mm;
+    overflow:hidden;
+  }
+  .card{
+    border:1px solid var(--line);border-radius:10px;display:grid;
+    grid-template-columns:1.2fr 0.8fr 0.32fr; /* texte / photo / QR */
+    grid-template-rows:auto 1fr; 
+    grid-template-areas:
+      "meta  photo qr"
+      "avis  photo qr";
+    gap:6px;padding:6px;min-height:0;overflow:hidden;
+    break-inside:avoid;page-break-inside:avoid;-webkit-region-break-inside:avoid;
+    align-content:stretch;
+  }
+
+  .meta{grid-area:meta; display:grid;gap:2px;min-height:0}
+  .title{
+    font-weight:800;font-size:16px;line-height:1.2;
+    display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;max-height:2.4em;
+    overflow-wrap:anywhere; word-break:break-word;
+  }
+  .row{
+    display:flex;
+    gap:6px;
+    align-items:baseline;
+    line-height:1.45; /* augmenté pour éviter toute coupure des jambages */
+  }
+  .lab{font-size:11px;color:#64748b;min-width:70px;flex:0 0 auto}
+  .val{
+    font-size:13px;
+    line-height:1.35; /* plus haut qu’avant */
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+    overflow-wrap:anywhere;
+  }
+  .flag{font-size:24px; vertical-align:-3px; margin-right:6px}
+
+  .photo{
+    grid-area:photo;
+    height:100%;
+    display:flex;align-items:center;justify-content:center;background:var(--chip);
+    border:1px solid var(--line);border-radius:8px;overflow:hidden;min-height:120px;position:relative;
+  }
+  .photo img{
+    max-width:100%;
+    max-height:100%;
+    width:auto;
+    height:auto;
+    object-fit:contain;
+    object-position:center center;
+    background:#fff;
+    display:block;
+  }
+
+  .qr{
+    grid-area:qr;
+    display:grid;grid-template-rows:auto auto 1fr;align-items:start;justify-items:center;
+    border:1px solid var(--line);border-radius:8px;padding:4px
+  }
+  .qr .cap{font-size:11px;color:#64748b;margin-bottom:2px}
+  .qrbox{width:60px;height:60px;display:grid;place-items:center;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:4px;overflow:hidden}
+  .qrbox canvas,.qrbox img{width:100%;height:100%;object-fit:contain}
+  .qrFallback{font-size:10px;color:#64748b;margin-top:2px;word-break:break-all;text-align:center}
+
+  .avis{
+    grid-area:avis;
+    border:1px dashed #cbd5e1;border-radius:8px;padding:6px;
+    min-height:0; height:100%;
+    display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:6px;
+  }
+  .avis .hint{font-size:12px;color:#334155;font-weight:600;}
+
+  @media print{
+    @page{ size:A4; margin:10mm; }
+    header,.controls,.status{display:none!important}
+    body{background:#fff}
+    .page{margin:0;padding:10mm;width:210mm;height:297mm;gap:5mm}
+    .card{border-width:0.6pt;padding:4mm 5mm;gap:3.5mm;grid-template-columns:1.2fr 0.8fr 0.28fr}
+    .title{font-size:15px}
+    .lab{font-size:10px}
+    .val{font-size:12px; line-height:1.35;}
+    .qrbox{width:58px;height:58px}
+    .flag{font-size:20px; vertical-align:-3px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap" style="padding:0">
+    <h1>Fiches artistes (QR + drapeaux étendus) — v17i</h1>
+    <div class="status" id="status">🛈 Charge ton fichier (xlsx/csv). Colonnes : Titre, Auteur, Origine, Date, YouTube, Lang (optionnel), Photo (URL, optionnel).</div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="controls">
+    <div>
+      <label>Fichier (xlsx/csv)</label>
+      <input type="file" id="file" accept=".xlsx,.xls,.csv">
+    </div>
+    <div>
+      <label>Langue Wikipédia par défaut</label>
+      <select id="lang">
+        <option value="fr" selected>fr</option><option value="en">en</option><option value="de">de</option><option value="es">es</option><option value="it">it</option>
+      </select>
+    </div>
+    <div><label>&nbsp;</label><button id="btnMake" class="primary" type="button">⚙️ Générer</button></div>
+    <div><label>&nbsp;</label><button id="btnPrint" type="button">🖨️ Imprimer</button></div>
+    <div><label>&nbsp;</label><button id="btnPDF" type="button">📥 Télécharger PDF</button></div>
+  </div>
+
+  <div id="printArea" class="print-root">
+    <div id="pages"></div>
+  </div>
+</div>
+
+<!-- Dépendances -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
+
+<script>
+const $ = s => document.querySelector(s);
+const statusBox = $('#status');
+const pagesEl = $('#pages');
+function say(msg, ok=false){ statusBox.textContent = (ok?'✔ ':'⚠ ')+msg; }
+function chunk(arr, size){ const out=[]; for(let i=0;i<arr.length;i+=size) out.push(arr.slice(i,i+size)); return out; }
+function pad2(n){ return n<10 ? '0'+n : ''+n; }
+function formatJJMMAAAA(d){
+  function pad2(n){ return n<10 ? '0'+n : ''+n; }
+  function out(dt){ return pad2(dt.getDate())+'-'+pad2(dt.getMonth()+1)+'-'+dt.getFullYear(); }
+  if(d==null) return '';
+  if(d instanceof Date && !isNaN(d)) return out(d);
+  if(typeof d==='number' && isFinite(d)){ const ms=(d-25569)*86400000; const dt=new Date(ms); return isNaN(dt)? '': out(dt); }
+  if(typeof d==='string'){
+    const s=d.trim(); if(!s) return '';
+    let m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+    if(m){ let dd=+m[1], mm=+m[2], yy=+m[3]; if(yy<100) yy+=2000; const dt=new Date(yy,mm-1,dd); return isNaN(dt)? '': out(dt); }
+    m=s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
+    if(m){ const yy=+m[1], mm=+m[2], dd=+m[3]; const dt=new Date(yy,mm-1,dd); return isNaN(dt)? '': out(dt); }
+    m=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2})$/);
+    if(m){ const dd=+m[1], mm=+m[2], yy=2000+(+m[3]); const dt=new Date(yy,mm-1,dd); return isNaN(dt)? '': out(dt); }
+    const t=Date.parse(s); return isNaN(t)? '': out(new Date(t));
+  }
+  return '';
+}
+
+
+  /* Drapeaux emoji étendus */
+function toFlagFromCode(code){
+  if(!code || code.length<2) return '';
+  code = code.toUpperCase();
+  if(code==='UK') code='GB';
+  let out='';
+  for(let i=0;i<2;i++) out += String.fromCodePoint(0x1F1E6 + (code.charCodeAt(i)-65));
+  return out;
+}
+const ORIGIN_MAP = {
+  'france':'FR','fr':'FR','français':'FR','francaise':'FR',
+  'italie':'IT','it':'IT','italian':'IT','italien':'IT',
+  'espagne':'ES','es':'ES','spanish':'ES','espagnol':'ES',
+  'allemagne':'DE','de':'DE','germany':'DE','allemand':'DE',
+  'royaume-uni':'GB','uk':'GB','gb':'GB','angleterre':'GB','anglais':'GB','english':'GB',
+  'etats-unis':'US','états-unis':'US','usa':'US','us':'US','amerique':'US','amérique':'US','américain':'US','americain':'US',
+  'autriche':'AT','at':'AT',
+  'republique tcheque':'CZ','république tchèque':'CZ','rep tcheque':'CZ','tchequie':'CZ','tchéquie':'CZ','cz':'CZ',
+  'ukraine':'UA','ua':'UA',
+  'australie':'AU','au':'AU',
+  'belgique':'BE','be':'BE','belge':'BE','belgian':'BE',
+  'pologne':'PL','pl':'PL',
+  'portugal':'PT','pt':'PT',
+  'suisse':'CH','ch':'CH',
+  'pays-bas':'NL','hollande':'NL','nl':'NL',
+  'irlande':'IE','ie':'IE',
+  'suede':'SE','suède':'SE','se':'SE',
+  'norvege':'NO','norvège':'NO','no':'NO',
+  'finlande':'FI','fi':'FI',
+  'danemark':'DK','dk':'DK',
+  'grece':'GR','grèce':'GR','gr':'GR',
+  'turquie':'TR','tr':'TR',
+  'maroc':'MA','ma':'MA',
+  'tunisie':'TN','tn':'TN',
+  'algerie':'DZ','algérie':'DZ','dz':'DZ',
+  'senegal':'SN','sénégal':'SN','sn':'SN',
+  'canada':'CA','ca':'CA',
+  'bresil':'BR','brésil':'BR','br':'BR',
+  'mexique':'MX','mx':'MX',
+  'japon':'JP','jp':'JP',
+  'chine':'CN','cn':'CN',
+  'inde':'IN','in':'IN',
+  'cote d\'ivoire':'CI','côte d’ivoire':'CI','ci':'CI'
+};
+function flagForOrigin(origRaw){
+  if(!origRaw) return '';
+  const s = (''+origRaw).trim().toLowerCase();
+  if(ORIGIN_MAP[s]) return toFlagFromCode(ORIGIN_MAP[s]) + ' ';
+  if(/^[a-z]{2}$/i.test(s)) return toFlagFromCode(s) + ' ';
+  for(const k of Object.keys(ORIGIN_MAP)){ if(s.includes(k)) return toFlagFromCode(ORIGIN_MAP[k]) + ' '; }
+  return '';
+}
+
+function ensureKeys(row){
+  const map={}; for(const k of Object.keys(row)){ map[k.toLowerCase()]=k; }
+  const pick=k=>row[map[k]]??'';
+  return {
+    Titre:pick('titre'), Auteur:pick('auteur'), Origine:pick('origine'),
+    Date:pick('date'), YouTube:pick('youtube'), Lang:(row[map['lang']]??'').toString().trim(),
+    Photo:pick('photo')
+  };
+}
+
+/* ====== Récup photo : priorité colonne Photo, sinon Wikipédia ====== */
+async function fetchWikiImageByTitle(title, lang){
+  const safe = encodeURIComponent(title.replaceAll(' ','_'));
+  const url = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${safe}`;
+  const r = await fetch(url); if(!r.ok) throw new Error('wiki fail'); const j=await r.json();
+  if(j.thumbnail?.source) return j.thumbnail.source; if(j.originalimage?.source) return j.originalimage.source; throw new Error('no img');
+}
+async function searchWikipedia(query, lang){
+  const api = `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*`;
+  const r = await fetch(api); if(!r.ok) throw new Error('search fail'); const j=await r.json(); return j?.query?.search?.[0]?.title||null;
+}
+async function findArtistImage(d, langDefault){
+  if(d.Photo && /^https?:\/\//i.test(d.Photo.trim())) return d.Photo.trim();
+  const langs=[]; const base=(d.Lang||langDefault||'fr').trim().toLowerCase(); if(base) langs.push(base); if(base!=='en') langs.push('en'); if(base!=='fr') langs.push('fr');
+  const queries=[]; if(d.Auteur) queries.push(d.Auteur); if(d.Titre) queries.push(d.Titre); if(d.Auteur&&d.Titre) queries.push(`${d.Titre} ${d.Auteur}`);
+  for(const lang of langs){
+    for(const q of queries){ try{ return await fetchWikiImageByTitle(q,lang);}catch{} }
+    for(const q of queries){ try{ const t=await searchWikipedia(q,lang); if(t){ try{ return await fetchWikiImageByTitle(t,lang);}catch{} } }catch{} }
+  }
+  return null;
+}
+
+function normalizeYouTube(link){
+  if(!link) return ''; let s=(''+link).trim();
+  if(/^[A-Za-z0-9_\-]{11}$/.test(s)) s='https://www.youtube.com/watch?v='+s;
+  else if(!/^https?:\/\//i.test(s)) s='https://' + s;
+  return s;
+}
+
+function makeCard(d){
+  const c=document.createElement('div'); c.className='card';
+  const dateTxt = formatJJMMAAAA(d.Date);
+  const flag = flagForOrigin(d.Origine);
+  c.innerHTML=`
+    <div class="meta">
+      <div class="title">${d.Titre||''}</div>
+      <div class="row"><div class="lab">Auteur</div><div class="val">${d.Auteur||''}</div></div>
+      <div class="row"><div class="lab">Origine</div><div class="val"><span class="flag">${flag||''}</span>${d.Origine||''}</div></div>
+      <div class="row"><div class="lab">Date d’écoute</div><div class="val">${dateTxt||'—'}</div></div>
+    </div>
+    <div class="photo"><div class="badge" style="color:#64748b">Recherche photo…</div></div>
+    <div class="qr"><div class="cap">QR YouTube</div><div class="qrbox"><div class="qrdiv"></div></div><div class="qrFallback"></div></div>
+    <div class="avis"><span class="hint">Avis :</span></div>
+  `;
+  return c;
+}
+
+async function fillCard(card, d, langDefault){
+  // Photo : URL fournie > Wikipedia
+  const photo=card.querySelector('.photo');
+  try{
+    const url = await findArtistImage(d, langDefault);
+    if(url){ photo.innerHTML=`<img src="${url}" alt="Photo">`; }
+    else{ photo.innerHTML=`<div class="badge" style="color:#64748b">Aucune photo trouvée</div>`; }
+  }catch{ photo.innerHTML=`<div class="badge" style="color:#64748b">Aucune photo trouvée</div>`; }
+
+  // QR via QRCode.js
+  const fb=card.querySelector('.qrFallback'); const qrdiv=card.querySelector('.qrdiv');
+  qrdiv.innerHTML='';
+  const link=normalizeYouTube(d.YouTube||'');
+  if(!link){ fb.textContent='Pas de lien'; return; }
+  try{
+    new QRCode(qrdiv,{text:link,width:60,height:60,correctLevel:QRCode.CorrectLevel.M});
+    fb.innerHTML = `<a href="${link}" target="_blank" style="font-size:10px;word-break:break-all">Ouvrir la vidéo</a>`;
+  }catch(e){
+    fb.textContent='QR indisponible';
+  }
+}
+
+document.getElementById('btnMake').addEventListener('click', async ()=>{
+  try{
+    const f = document.getElementById('file').files[0]; if(!f){ say('Choisis un fichier'); return; }
+    say(`Lecture : ${f.name}…`);
+    const buf = await f.arrayBuffer(); let rows=[];
+    if(f.name.toLowerCase().endsWith('.csv')){
+      const text=new TextDecoder().decode(new Uint8Array(buf)); const lines=text.split(/\r?\n/).filter(x=>x.trim()); const headers=lines.shift().split(/;|,|\t/).map(s=>s.trim());
+      for(const line of lines){ const parts=line.split(/;|,|\t/); const obj={}; headers.forEach((h,i)=>obj[h]=parts[i]||''); rows.push(obj); }
+    }else{
+      const wb=XLSX.read(buf,{type:'array'}); if(!wb.SheetNames?.length){ say('Aucune feuille'); return; } const ws=wb.Sheets[wb.SheetNames[0]]; rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+    }
+    if(!rows.length){ say('Aucune donnée'); return; }
+    say(`${rows.length} ligne(s) lue(s). Génération…`, true);
+    const mapped = rows.map(ensureKeys); const groups = chunk(mapped,4);
+    pagesEl.innerHTML='';
+    for(const g of groups){
+      const page=document.createElement('section'); page.className='page';
+      for(const r of g){ const card=makeCard(r); page.appendChild(card); await fillCard(card, r, document.getElementById('lang').value||'fr'); }
+      pagesEl.appendChild(page);
+    }
+    say(`✅ Fiches générées : ${mapped.length}`, true);
+  }catch(e){ console.error(e); say('Erreur : '+e.message); alert('Erreur : '+e.message); }
+});
+
+document.getElementById('btnPrint').addEventListener('click', ()=>window.print());
+
+/* Export PDF sans pages blanches, jsPDF + html2canvas */
+document.getElementById('btnPDF').addEventListener('click', async ()=>{
+  const pages = Array.from(document.querySelectorAll('.page'));
+  if(!pages.length){ alert('Génère les fiches avant.'); return; }
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
+  for(let i=0;i<pages.length;i++){
+    const canvas = await html2canvas(pages[i], { scale: 2, useCORS: true, letterRendering: true, windowWidth: 2100 });
+    const imgData = canvas.toDataURL('image/jpeg', 0.98);
+    pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+    if(i < pages.length-1) pdf.addPage('a4','portrait');
+  }
+  pdf.save('fiches_artistes.pdf');
+});
+</script>
+
+<!-- === AUTOLOAD (même répertoire) : charge automatiquement 'musique.xlsx' situé dans le même dossier que cette page === -->
+<script>
+(function(){
+  const RELATIVE_PATH = "musique.xlsx"; // même répertoire que la page HTML
+  function ready(fn){ if(document.readyState!=="loading") fn(); else document.addEventListener("DOMContentLoaded", fn); }
+
+  ready(async function(){
+    try{
+      const absURL = new URL(RELATIVE_PATH, document.baseURI).href;
+      const fileInput = document.querySelector('#file') || document.querySelector('input[type="file"]');
+      const genBtn = document.getElementById('btnMake') || Array.from(document.querySelectorAll('button')).find(b=>/gen[eé]r/i.test(b.textContent||""));
+      if(!fileInput || !genBtn){
+        const st = document.getElementById('status') || document.body;
+        const p = document.createElement('div'); p.style.color='#b45309'; p.style.margin='8px 0';
+        p.textContent = "⚠ Auto-chargement : champ fichier ou bouton Générer introuvable.";
+        st.appendChild(p);
+        return;
+      }
+      let buf;
+      try{
+        const resp = await fetch(absURL, {cache:'no-store'});
+        if(!resp.ok) throw new Error('HTTP '+resp.status);
+        buf = await resp.arrayBuffer();
+      }catch(e){
+        const st = document.getElementById('status') || document.body;
+        const p = document.createElement('div'); p.style.color='#b45309'; p.style.margin='8px 0';
+        p.textContent = (location.protocol === 'file:')
+          ? "⚠ Le navigateur bloque le chargement automatique en file://. Servez le dossier via un petit serveur local (ex. python -m http.server) puis rechargez la page."
+          : ("⚠ Impossible de charger 'musique.xlsx' ("+e.message+").");
+        st.appendChild(p);
+        return;
+      }
+      const file = new File([buf], "musique.xlsx", {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+      const dt = new DataTransfer(); dt.items.add(file); fileInput.files = dt.files;
+      genBtn.click();
+    }catch(err){
+      const st = document.getElementById('status') || document.body;
+      const p = document.createElement('div'); p.style.color='#b91c1c'; p.style.margin='8px 0';
+      p.textContent = "⚠ Auto-chargement : " + err.message;
+      st.appendChild(p);
+      console.error(err);
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
