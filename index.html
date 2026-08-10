@@ -272,6 +272,13 @@ h1,h2{letter-spacing:.2px}
 </style>
 
 <!-- === MODERN FUN THEME (Genially-like) === -->
+<style id="calendarArtistPhotoTextFix">
+  /* Le titre est noir tant qu'aucune photo n'est effectivement chargée. */
+  #grid .day .calendar-day-title { color:#000 !important; text-shadow:none; }
+  #grid .day.has-artist-photo .calendar-day-title,
+  #grid .day.has-artist-photo .calendar-day-author,
+  #grid .day.has-artist-photo .calendar-day-number { color:#fff !important; text-shadow:0 1px 3px rgba(0,0,0,.85); }
+</style>
 <style id="modernTheme">
   :root{
     --bg-start:#0f172a; --bg-end:#1e293b;
@@ -451,6 +458,112 @@ input#titre, input#origine, input#youtube, input#auteur, input#artiste, input#in
 /* wikilink style: underline, inherit color */
 .wikilink{ text-decoration: underline; color: inherit; }
 .wikilink:hover{ text-decoration: underline; }
+</style>
+
+<style id="artistCalendarPhotos">
+  #grid .artist-day-photo{
+    position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+    border-radius:.75rem; opacity:.78; z-index:0;
+  }
+  #grid .artist-day-photo-overlay{
+    position:absolute; inset:0; border-radius:.75rem;
+    background:linear-gradient(to bottom,rgba(0,0,0,.12),rgba(0,0,0,.68)); z-index:1;
+  }
+  #grid .artist-day-content{position:relative; z-index:2; color:#fff !important; text-shadow:0 1px 3px rgba(0,0,0,.85);}
+  #grid .artist-day-content .artist-date{color:#fff !important; font-weight:700;}
+  #grid .artist-day-content .artist-name{color:#fff !important;}
+  #grid .artist-day-photo-cell{position:relative; overflow:hidden; background:#111827 !important;}
+  #grid .artist-day-photo-cell:hover .artist-day-photo{transform:scale(1.04); transition:transform .35s ease;}
+  #authorImg{display:block !important; min-height:96px;}
+  #authorImg[style*="display: none"]{display:block !important;}
+  #viewDetail .author-photo-box{min-height:120px;}
+</style>
+<script id="artistCalendarPhotoLogic">
+(function(){
+  const photoCache = new Map();
+  const inflight = new Map();
+  const keyFor = a => 'ARTIST_PHOTO_CACHE_' + String(a||'').trim().toLowerCase();
+  function lsGet(k){ try{return JSON.parse(localStorage.getItem(k)||'null');}catch(e){return null;} }
+  function lsSet(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
+  async function wikiImage(author,title){
+    const name=String(author||'').trim(), t=String(title||'').trim();
+    if(!name && !t) return '';
+    const cached=lsGet(keyFor(name||t));
+    if(cached && cached.url) return cached.url;
+    if(inflight.has(name||t)) return inflight.get(name||t);
+    const promise=(async()=>{
+      const langs=['fr','en','es','de','it'];
+      const queries=[name,t,name&&t?(name+' '+t):''].filter(Boolean);
+      for(const lang of langs){
+        for(const q of queries){
+          try{
+            const api='https://'+lang+'.wikipedia.org/w/api.php?action=query&format=json&origin=*&prop=pageimages|info&inprop=url&piprop=thumbnail&pithumbsize=500&titles='+encodeURIComponent(q);
+            const r=await fetch(api); if(!r.ok) continue;
+            const j=await r.json(); const pages=j?.query?.pages||{}; const first=Object.values(pages)[0];
+            const u=first?.thumbnail?.source || first?.original?.source;
+            if(u){ lsSet(keyFor(name||t),{url:u,credit:first?.fullurl||''}); return u; }
+          }catch(e){}
+        }
+      }
+      return '';
+    })();
+    inflight.set(name||t,promise);
+    const result=await promise; inflight.delete(name||t);
+    return result;
+  }
+  window.__artistPhotoForCalendar=wikiImage;
+
+  function addPhoto(cell,item,dateStr,today){
+    const author=item?.author||item?.auteur||'';
+    const title=item?.title||item?.titre||'';
+    if(!author && !title) return;
+    if(dateStr>today) return; // jamais de photo avant le jour J
+    const token=(cell.dataset.photoToken=String(Date.now())+Math.random());
+    wikiImage(author,title).then(url=>{
+      if(!url || cell.dataset.photoToken!==token) return;
+      const img=document.createElement('img');
+      img.className='artist-day-photo'; img.alt=''; img.loading='lazy'; img.src=url;
+      const ov=document.createElement('div'); ov.className='artist-day-photo-overlay';
+      cell.prepend(ov); cell.prepend(img); cell.classList.add('artist-day-photo-cell');
+    });
+  }
+  window.__decorateArtistCalendar=addPhoto;
+
+  // Rebranche le calendrier après son rendu sans remplacer sa logique métier.
+  const wait=()=>{
+    if(typeof window.renderCalendar!=='function') return setTimeout(wait,50);
+    if(window.__artistCalendarWrapped) return; window.__artistCalendarWrapped=true;
+    const original=window.renderCalendar;
+    window.renderCalendar=function(){
+      original.apply(this,arguments);
+      const today=(window.__profRevealHelpers?.parisTodayYmd?.()||new Date().toISOString().slice(0,10));
+      const map=(typeof window.indexByDate==='function')?window.indexByDate(window.DATA||[]):new Map();
+      document.querySelectorAll('#grid .day').forEach(cell=>{
+        const txt=(cell.querySelector('.text-xs')?.textContent||'').trim();
+        const d=parseInt(txt,10); if(!d) return;
+        const y=(typeof curY!=='undefined'?curY:null), m=(typeof curM!=='undefined'?curM:null);
+        if(typeof y!=='number'||typeof m!=='number') return;
+        const ds=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+        const item=map.get(ds); if(item) addPhoto(cell,item,ds,today);
+      });
+    };
+  };
+  wait();
+})();
+</script>
+
+<style id="calendarPhotoTextFinal">
+/* Calendrier : titre/auteur noirs sans photo, blancs uniquement quand la photo est effectivement chargée. */
+#grid .day .calendar-day-title, #grid .day .calendar-day-author, #grid .day .calendar-day-number {
+  color:#000 !important;
+  text-shadow:none;
+}
+#grid .day.has-artist-photo .calendar-day-title,
+#grid .day.has-artist-photo .calendar-day-author,
+#grid .day.has-artist-photo .calendar-day-number {
+  color:#fff !important;
+  text-shadow:0 1px 3px rgba(0,0,0,.9);
+}
 </style>
 </head>
 \1
@@ -769,6 +882,108 @@ const countMonth = document.getElementById("countMonth");
 let cur = new Date();
 let curY = cur.getUTCFullYear(), curM = cur.getUTCMonth();
 
+async function getAuthorImageUrl(author, title){
+  const name = (author||"").trim();
+  const song = (title||"").trim();
+  if(!name && !song) return "";
+
+  // Cache versionné : une ancienne mauvaise correspondance ne bloque pas une nouvelle recherche.
+  const CACHE_KEY = "AUTHOR_IMG_V3_" + (name + "|" + song).toLowerCase();
+  const cached = cacheGet(CACHE_KEY);
+  if(cached && cached.url) return cached.url;
+
+  const langs = ["fr","en","es","de","it"];
+  const queries = [];
+  if(name) queries.push('"' + name + '"');
+  if(song && name) queries.push('"' + song + '" "' + name + '"');
+  if(song) queries.push('"' + song + '"');
+
+  // Vérifie réellement que l'URL est une image exploitable dans le navigateur.
+  function verifyImage(url){
+    return new Promise(resolve=>{
+      if(!url) return resolve(false);
+      const im = new Image();
+      let done=false;
+      const finish=v=>{ if(done)return; done=true; clearTimeout(timer); resolve(v); };
+      const timer=setTimeout(()=>finish(false),7000);
+      im.onload=()=>finish(im.naturalWidth>40 && im.naturalHeight>40);
+      im.onerror=()=>finish(false);
+      im.src=url;
+    });
+  }
+
+  async function pageImage(lang, title){
+    try{
+      const u="https://"+lang+".wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1&prop=pageimages|info&inprop=url&piprop=thumbnail&pithumbsize=800&titles="+encodeURIComponent(title);
+      const r=await fetch(u,{cache:"no-store"});
+      if(!r.ok) return null;
+      const j=await r.json();
+      const pages=j?.query?.pages||{};
+      const page=Object.values(pages)[0];
+      const url=page?.thumbnail?.source || page?.original?.source || "";
+      return url ? {url,credit:page?.fullurl||"Source : Wikipédia"} : null;
+    }catch(e){ return null; }
+  }
+
+  async function searchTitles(lang,q){
+    try{
+      const u="https://"+lang+".wikipedia.org/w/api.php?action=query&list=search&srsearch="+encodeURIComponent(q)+"&format=json&origin=*&srlimit=8&srnamespace=0";
+      const r=await fetch(u,{cache:"no-store"});
+      if(!r.ok) return [];
+      const j=await r.json();
+      return (j?.query?.search||[]).map(x=>x.title).filter(Boolean);
+    }catch(e){ return []; }
+  }
+
+  const tried=new Set();
+  async function tryTitle(lang,t){
+    const key=lang+'|'+t.toLowerCase();
+    if(tried.has(key)) return "";
+    tried.add(key);
+    const result=await pageImage(lang,t);
+    if(result && await verifyImage(result.url)){
+      cacheSet(CACHE_KEY,{url:result.url,credit:result.credit||"Source : Wikipédia"});
+      return result.url;
+    }
+    return "";
+  }
+
+  for(const lang of langs){
+    // 1. Page directe de l'artiste (PSY, Stromae, etc.).
+    if(name){
+      const img=await tryTitle(lang,name);
+      if(img) return img;
+    }
+
+    // 2. Recherche combinée artiste + morceau : utile notamment pour Gangnam Style / PSY.
+    for(const q of queries){
+      const titles=await searchTitles(lang,q);
+      for(const t of titles){
+        const img=await tryTitle(lang,t);
+        if(img) return img;
+      }
+    }
+  }
+  return "";
+}
+
+function paintCalendarCellPhoto(cell, url){
+  if(!cell || !url) return;
+  const safeUrl = String(url).replace(/"/g,'\\"');
+  cell.style.backgroundImage = `linear-gradient(rgba(0,0,0,.18),rgba(0,0,0,.62)), url("${safeUrl}")`;
+  cell.style.backgroundSize = "cover";
+  cell.style.backgroundPosition = "center";
+  cell.classList.add("has-artist-photo");
+  cell.dataset.artistPhoto = url;
+}
+
+function clearCalendarCellPhoto(cell){
+  if(!cell) return;
+  cell.style.backgroundImage = "";
+  cell.classList.remove("has-artist-photo");
+  delete cell.dataset.artistPhoto;
+}
+
 function renderCalendar(){
   const __lockOn = (window.__profRevealHelpers && window.__profRevealHelpers.revealEnabled && window.__profRevealHelpers.revealEnabled()) || false;
 const __today = (window.__profRevealHelpers && window.__profRevealHelpers.parisTodayYmd && window.__profRevealHelpers.parisTodayYmd()) || (new Date().toISOString().slice(0,10));
@@ -801,7 +1016,20 @@ try{ if(!window.__gridCleared__){ resetCalendarUI(); } }catch(e){}
     const cell = document.createElement("button");
     cell.type="button";
     cell.className = "day rounded-xl border w-full text-left p-2 " + (has ? "bg-emerald-50 border-emerald-200" : "bg-white");
-    cell.innerHTML = `<div class="text-xs text-slate-500">${d}</div>` + (has ? `<div class="mt-1 font-semibold text-sm line-clamp-3">${htmlEscape(item.title || item.titre || "Titre")}</div><div class="text-xs text-slate-500 line-clamp-1">${htmlEscape(item.author || item.auteur || "")}</div>` : `<div class="text-xs text-slate-400 mt-1">—</div>`);
+    cell.innerHTML = `<div class="calendar-day-number text-xs ${has ? 'text-slate-500' : 'text-slate-500'}">${d}</div>` + (has ? `<div class="calendar-day-title mt-1 font-semibold text-sm line-clamp-3">${htmlEscape(item.title || item.titre || "Titre")}</div><div class="calendar-day-author text-xs line-clamp-1">${htmlEscape(item.author || item.auteur || "")}</div>` : `<div class="text-xs text-slate-400 mt-1">—</div>`);
+
+    // Quand le mode « Révéler la fiche uniquement le jour J » est désactivé,
+    // la photo doit être visible même pour les dates futures.
+    // Quand il est activé, les dates futures restent totalement masquées.
+    if(has && (!__lockOn || dateStr <= __today)){
+      const authorName = item.author || item.auteur || "";
+      getAuthorImageUrl(authorName, item.title || item.titre || "").then(url=>{
+        if(!document.body.contains(cell)) return;
+        if(__lockOn && dateStr > __today) return;
+        if(url) paintCalendarCellPhoto(cell,url);
+        else clearCalendarCellPhoto(cell);
+      });
+    }
     if(__lockOn && has && !(dateStr <= __today)){
       cell.classList.add("opacity-70","cursor-not-allowed");
       cell.addEventListener("click", (ev)=>{ ev.preventDefault(); if(window.__profRevealHelpers) window.__profRevealHelpers.showToast("Fiche disponible après la journée 🎧"); });
@@ -1022,8 +1250,17 @@ renderDetail = function(dateStr){
   const mapSrc = toMapEmbed(origin);
   const mapFrame = document.getElementById("mapFrame");
   mapFrame.src = mapSrc || "";
-  // Photo auteur
+  // Photo auteur : toujours affichée dans la fiche lorsque la fiche est accessible.
   const author = item.author || item.auteur || "";
+  const img = document.getElementById("authorImg");
+  const status = document.getElementById("authorImgStatus");
+  const credit = document.getElementById("authorImgCredit");
+  if(img){
+    img.style.setProperty("display","block","important");
+    img.removeAttribute("src");
+  }
+  if(status) status.textContent = author ? "Recherche d’une image sur Wikipédia…" : "Aucun auteur.";
+  if(credit) credit.textContent = "";
   fetchAuthorImage(author);
 };
 
@@ -2666,14 +2903,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const img = document.getElementById('authorImg');
     if(!img) return;
     if(url){
-      img.style.display='';
+      img.style.setProperty('display','block','important');
       img.alt = alt || 'Artiste';
       img.onload  = ()=>{ setPhotoStatus(''); setPhotoCredit('Source : Wikipedia'); };
       img.onerror = ()=>{ setPhotoStatus('Photo indisponible'); setPhotoCredit(''); img.removeAttribute('src'); img.style.display='none'; };
       img.src = url;
     }else{
       img.removeAttribute('src');
-      img.style.display='none';
+      img.style.setProperty('display','block','important');
+      img.alt='Photo artiste';
     }
   }
 
@@ -2763,6 +3001,28 @@ document.addEventListener("DOMContentLoaded", () => {
       window.fetchAuthorImage(a, t, l, '');
     }
   };
+})();
+</script>
+
+
+<script id="finalArtistPhotoDetailFix">
+(function(){
+  function ensure(){
+    const h=location.hash||'';
+    if(!h.startsWith('#/date=')) return;
+    const d=decodeURIComponent(h.slice(7));
+    try{
+      const map=(typeof indexByDate==='function')?indexByDate(window.DATA||[]):new Map();
+      const item=map.get(d)||{};
+      const author=item.author||item.auteur||'';
+      const title=item.title||item.titre||'';
+      if(typeof window.fetchAuthorImage==='function' && (author||title)){
+        window.fetchAuthorImage(author,title,'fr',item.photo||item.Photo||'');
+      }
+    }catch(e){}
+  }
+  window.addEventListener('hashchange',()=>setTimeout(ensure,120));
+  document.addEventListener('DOMContentLoaded',()=>setTimeout(ensure,250));
 })();
 </script>
 
