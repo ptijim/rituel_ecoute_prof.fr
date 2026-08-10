@@ -177,59 +177,145 @@ function formatJJMMAAAA(d){
 }
 
 
-  /* Drapeaux emoji étendus */
+  /* Drapeaux emoji étendus — résolution robuste des pays */
+function normalizeCountryName(value){
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[’'`]/g, "")
+    .replace(/[-–—]/g, " ")
+    .replace(/[().,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function toFlagFromCode(code){
-  if(!code || code.length<2) return '';
+  if(!code || !/^[A-Z]{2}$/i.test(code)) return '';
   code = code.toUpperCase();
-  if(code==='UK') code='GB';
-  let out='';
+  if(code === 'UK') code = 'GB';
+  let out = '';
   for(let i=0;i<2;i++) out += String.fromCodePoint(0x1F1E6 + (code.charCodeAt(i)-65));
   return out;
 }
+
 const ORIGIN_MAP = {
-  'france':'FR','fr':'FR','français':'FR','francaise':'FR',
-  'italie':'IT','it':'IT','italian':'IT','italien':'IT',
-  'espagne':'ES','es':'ES','spanish':'ES','espagnol':'ES',
-  'allemagne':'DE','de':'DE','germany':'DE','allemand':'DE',
-  'royaume-uni':'GB','uk':'GB','gb':'GB','angleterre':'GB','anglais':'GB','english':'GB',
-  'etats-unis':'US','états-unis':'US','usa':'US','us':'US','amerique':'US','amérique':'US','américain':'US','americain':'US',
-  'autriche':'AT','at':'AT',
-  'republique tcheque':'CZ','république tchèque':'CZ','rep tcheque':'CZ','tchequie':'CZ','tchéquie':'CZ','cz':'CZ',
+  'france':'FR','fr':'FR','francais':'FR','francaise':'FR',
+  'italie':'IT','it':'IT','italien':'IT','italienne':'IT',
+  'espagne':'ES','es':'ES','espagnol':'ES','espagnole':'ES',
+  'allemagne':'DE','de':'DE','germany':'DE','allemand':'DE','allemande':'DE',
+  'royaume uni':'GB','uk':'GB','gb':'GB','angleterre':'GB','anglais':'GB','anglaise':'GB',
+  'etats unis':'US','usa':'US','us':'US','amerique':'US','americain':'US','americaine':'US',
+  'autriche':'AT','at':'AT','autrichien':'AT','autrichienne':'AT',
+  'republique tcheque':'CZ','rep tcheque':'CZ','tchequie':'CZ','cz':'CZ',
   'ukraine':'UA','ua':'UA',
   'australie':'AU','au':'AU',
-  'belgique':'BE','be':'BE','belge':'BE','belgian':'BE',
+  'belgique':'BE','be':'BE','belge':'BE',
   'pologne':'PL','pl':'PL',
   'portugal':'PT','pt':'PT',
   'suisse':'CH','ch':'CH',
-  'pays-bas':'NL','hollande':'NL','nl':'NL',
+  'pays bas':'NL','hollande':'NL','nl':'NL',
   'irlande':'IE','ie':'IE',
-  'suede':'SE','suède':'SE','se':'SE',
-  'norvege':'NO','norvège':'NO','no':'NO',
+  'suede':'SE','se':'SE',
+  'norvege':'NO','no':'NO',
   'finlande':'FI','fi':'FI',
   'danemark':'DK','dk':'DK',
-  'grece':'GR','grèce':'GR','gr':'GR',
+  'grece':'GR','gr':'GR',
   'turquie':'TR','tr':'TR',
   'maroc':'MA','ma':'MA',
   'tunisie':'TN','tn':'TN',
-  'algerie':'DZ','algérie':'DZ','dz':'DZ',
-  'senegal':'SN','sénégal':'SN','sn':'SN',
+  'algerie':'DZ','dz':'DZ',
+  'senegal':'SN','sn':'SN',
   'canada':'CA','ca':'CA',
-  'bresil':'BR','brésil':'BR','br':'BR',
+  'bresil':'BR','br':'BR',
   'mexique':'MX','mx':'MX',
   'japon':'JP','jp':'JP',
   'chine':'CN','cn':'CN',
   'inde':'IN','in':'IN',
-  'cote d\'ivoire':'CI','côte d’ivoire':'CI','ci':'CI',
-  /* ajouts fiables */
-  'russie':'RU','russia':'RU','russe':'RU','fédération de russie':'RU','federation de russie':'RU','ru':'RU',
-  'israël':'IL','israel':'IL'
+  'cote divoire':'CI','ci':'CI',
+  'russie':'RU','russia':'RU','russe':'RU','federation de russie':'RU','ru':'RU',
+  'israel':'IL','il':'IL',
+
+  /* Pays demandés / variantes fréquentes */
+  'cameroun':'CM','cm':'CM',
+  'coree du sud':'KR','coree sud':'KR','coree republic of korea':'KR','south korea':'KR','kr':'KR',
+  'afrique du sud':'ZA','south africa':'ZA','za':'ZA',
+  'nouvelle zelande':'NZ','new zealand':'NZ','nz':'NZ',
+  'nigeria':'NG','ng':'NG',
+  'cap vert':'CV','cape verde':'CV','cv':'CV',
+  'mongolie':'MN','mongolia':'MN','mn':'MN',
+  'cuba':'CU','cu':'CU',
+  'iran':'IR','iran islamic republic of':'IR','ir':'IR',
+  'argentine':'AR','argentina':'AR','ar':'AR',
+  'islande':'IS','iceland':'IS','is':'IS',
+  'colombie':'CO','colombia':'CO','co':'CO',
+  'perou':'PE','peru':'PE','pe':'PE',
+  'bolivie':'BO','bolivia':'BO','bo':'BO',
+  'chili':'CL','chile':'CL','cl':'CL',
+  'uruguay':'UY','uy':'UY',
+  'paraguay':'PY','py':'PY',
+  'venezuela':'VE','ve':'VE',
+  'equateur':'EC','ecuador':'EC','ec':'EC',
+  'ghana':'GH','gh':'GH',
+  'kenya':'KE','ke':'KE',
+  'tanzanie':'TZ','tanzania':'TZ','tz':'TZ',
+  'ouganda':'UG','uganda':'UG','ug':'UG',
+  'ethiopie':'ET','ethiopia':'ET','et':'ET',
+  'egypte':'EG','egypt':'EG','eg':'EG',
+  'rd congo':'CD','republique democratique du congo':'CD','rdc':'CD','democratic republic of the congo':'CD','cd':'CD',
+  'congo':'CG','republique du congo':'CG','congo brazzaville':'CG','cg':'CG',
+  'cote divoire':'CI','ivory coast':'CI',
+  'afghanistan':'AF','af':'AF',
+  'arabie saoudite':'SA','saudi arabia':'SA','sa':'SA',
+  'emirats arabes unis':'AE','united arab emirates':'AE','uae':'AE','ae':'AE',
+  'israel':'IL','il':'IL',
+  'jordanie':'JO','jordan':'JO','jo':'JO',
+  'liban':'LB','lebanon':'LB','lb':'LB',
+  'syrie':'SY','syria':'SY','sy':'SY',
+  'irak':'IQ','iraq':'IQ','iq':'IQ',
+  'palestine':'PS','ps':'PS',
+  'inde':'IN','india':'IN',
+  'pakistan':'PK','pk':'PK',
+  'bangladesh':'BD','bd':'BD',
+  'nepal':'NP','np':'NP',
+  'thailande':'TH','thailand':'TH','th':'TH',
+  'vietnam':'VN','viet nam':'VN','vn':'VN',
+  'indonesie':'ID','indonesia':'ID','id':'ID',
+  'malaisie':'MY','malaysia':'MY','my':'MY',
+  'philippines':'PH','ph':'PH',
+  'singapour':'SG','singapore':'SG','sg':'SG',
+  'taiwan':'TW','tw':'TW',
+  'mongolie':'MN','mn':'MN',
+  'kazakhstan':'KZ','kz':'KZ',
+  'georgie':'GE','georgia':'GE','ge':'GE',
+  'armenie':'AM','armenia':'AM','am':'AM',
+  'azerbaidjan':'AZ','azerbaijan':'AZ','az':'AZ',
+  'australie':'AU',
+  'fidji':'FJ','fiji':'FJ','fj':'FJ',
+  'nouvelle guinee':'PG','papua new guinea':'PG','pg':'PG'
 };
+
 function flagForOrigin(origRaw){
   if(!origRaw) return '';
-  const s = (''+origRaw).trim().toLowerCase();
+  const s = normalizeCountryName(origRaw);
+
+  // Exact match first.
   if(ORIGIN_MAP[s]) return toFlagFromCode(ORIGIN_MAP[s]) + ' ';
+
+  // ISO alpha-2 code.
   if(/^[a-z]{2}$/i.test(s)) return toFlagFromCode(s) + ' ';
-  for(const k of Object.keys(ORIGIN_MAP)){ if(s.includes(k)) return toFlagFromCode(ORIGIN_MAP[k]) + ' '; }
+
+  // Longest matching country name wins, preventing e.g. "congo" from
+  // overriding "republique democratique du congo".
+  const keys = Object.keys(ORIGIN_MAP)
+    .filter(k => k.length > 2)
+    .sort((a,b) => b.length - a.length);
+
+  for(const k of keys){
+    if(s === k || s.includes(k)){
+      return toFlagFromCode(ORIGIN_MAP[k]) + ' ';
+    }
+  }
   return '';
 }
 
