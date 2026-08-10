@@ -2003,14 +2003,63 @@ parseHash();
     return String.fromCodePoint(first) + String.fromCodePoint(second);
   }
 
+  // Normalise aussi les clés du dictionnaire : ainsi "Corée du Sud" devient
+  // "coree du sud" et reste correctement reconnu après suppression des accents.
+  const COUNTRY_MAP_NORMALIZED = Object.fromEntries(
+    Object.entries(COUNTRY_MAP).map(([name, code]) => [
+      name.toLowerCase().normalize("NFD").replace(/\p{Diacritic}+/gu, "").trim(),
+      code
+    ])
+  );
+
+  // Pays supplémentaires + variantes courantes rencontrées dans le fichier Excel.
+  Object.assign(COUNTRY_MAP_NORMALIZED, {
+    "cameroun":"CM",
+    "cameroon":"CM",
+    "afrique du sud":"ZA",
+    "south africa":"ZA",
+    "nigeria":"NG",
+    "cape-vert":"CV",
+    "cap-vert":"CV",
+    "cap vert":"CV",
+    "cape verde":"CV",
+    "cote d'ivoire":"CI",
+    "cote d ivoire":"CI",
+    "ivory coast":"CI",
+    "côte d'ivoire":"CI",
+    "mongolie":"MN",
+    "mongolia":"MN",
+    "iran":"IR",
+    "republique islamique d'iran":"IR",
+    "argentine":"AR",
+    "islande":"IS",
+    "nouvelle-zelande":"NZ",
+    "nouvelle zelande":"NZ",
+    "new zealand":"NZ",
+    "coree du sud":"KR",
+    "south korea":"KR",
+    "republique de coree":"KR",
+    "coree":"KR"
+  });
+
   function extractCountryCode(origin){
     if(!origin) return "";
-    const s = origin.toLowerCase().normalize("NFD").replace(/\p{Diacritic}+/gu,"").trim();
-    // try exact map hit
-    if(COUNTRY_MAP[s]) return COUNTRY_MAP[s];
-    // try contains
-    for(const key of Object.keys(COUNTRY_MAP)){
-      if(s.includes(key)) return COUNTRY_MAP[key];
+    const s = String(origin).toLowerCase()
+      .normalize("NFD").replace(/\p{Diacritic}+/gu, "")
+      .replace(/[’']/g, "'")
+      .replace(/[\u2010-\u2015]/g, "-")
+      .trim();
+
+    // Code ISO déjà présent dans la cellule (ex. "KR", "ZA", "CM").
+    if(/^[a-z]{2}$/.test(s)) return s.toUpperCase();
+
+    if(COUNTRY_MAP_NORMALIZED[s]) return COUNTRY_MAP_NORMALIZED[s];
+
+    // On cherche d'abord les noms les plus longs pour éviter les collisions
+    // (ex. "Corée du Sud" avant "Corée").
+    const keys = Object.keys(COUNTRY_MAP_NORMALIZED).sort((a,b)=>b.length-a.length);
+    for(const key of keys){
+      if(s === key || s.includes(key)) return COUNTRY_MAP_NORMALIZED[key];
     }
     return "";
   }
