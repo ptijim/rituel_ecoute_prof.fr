@@ -883,173 +883,88 @@ let cur = new Date();
 let curY = cur.getUTCFullYear(), curM = cur.getUTCMonth();
 
 async function getAuthorImageUrl(author, title){
-  const name = (author||'').trim();
-  const song = (title||'').trim();
-  return await findReliableArtistImage(name, song, 'calendar');
-}
+  const name = (author||"").trim();
+  const song = (title||"").trim();
+  if(!name && !song) return "";
 
-/* Recherche d'image orientée "artiste musical".
-   L'ancienne version demandait simplement à Wikipédia la première image
-   correspondant au texte : pour un nom ambigu (ex. "Téléphone" ou "Clou"),
-   elle pouvait donc récupérer un téléphone ou des clous. Ici on identifie
-   d'abord l'entité musicale via Wikidata, puis on utilise son image P18. */
-async function findReliableArtistImage(author, title, context){
-  const name = String(author||'').trim();
-  const song = String(title||'').trim();
-  if(!name && !song) return '';
-
-  const CACHE_KEY = 'AUTHOR_IMG_V4_' + (name + '|' + song).toLowerCase();
+  // Cache versionné : une ancienne mauvaise correspondance ne bloque pas une nouvelle recherche.
+  const CACHE_KEY = "AUTHOR_IMG_V3_" + (name + "|" + song).toLowerCase();
   const cached = cacheGet(CACHE_KEY);
   if(cached && cached.url) return cached.url;
 
-  const badImageWords = [
-    'telephone','phone','smartphone','mobile','clou','nail','nails',
-    'objet','object','outil','tool','instrument','device','disambiguation'
-  ];
-  const musicWords = [
-    'musique','music','chanteur','chanteuse','artiste musical','musicien',
-    'musicienne','groupe','band','singer','songwriter','vocalist','rapper',
-    'rock','pop','hip-hop','folk','jazz','electronic','électro','punk',
-    'metal','métal','duo','trio','quartet','quartet','producer','producteur'
-  ];
+  const langs = ["fr","en","es","de","it"];
+  const queries = [];
+  if(name) queries.push('"' + name + '"');
+  if(song && name) queries.push('"' + song + '" "' + name + '"');
+  if(song) queries.push('"' + song + '"');
 
-  function normText(v){
-    return String(v||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase();
-  }
-  function imageLooksMusical(text){
-    const t=normText(text);
-    return musicWords.some(w=>t.includes(normText(w)));
-  }
-  function looksObviouslyWrong(text){
-    const t=normText(text);
-    return badImageWords.some(w=>t.includes(normText(w)));
-  }
-  async function verifyImage(url){
+  // Vérifie réellement que l'URL est une image exploitable dans le navigateur.
+  function verifyImage(url){
     return new Promise(resolve=>{
       if(!url) return resolve(false);
-      const im=new Image(); let done=false;
+      const im = new Image();
+      let done=false;
       const finish=v=>{ if(done)return; done=true; clearTimeout(timer); resolve(v); };
-      const timer=setTimeout(()=>finish(false),6000);
-      im.onload=()=>finish(im.naturalWidth>80 && im.naturalHeight>80);
+      const timer=setTimeout(()=>finish(false),7000);
+      im.onload=()=>finish(im.naturalWidth>40 && im.naturalHeight>40);
       im.onerror=()=>finish(false);
       im.src=url;
     });
   }
-  async function wikidataSearch(q, lang){
-    try{
-      const u='https://www.wikidata.org/w/api.php?action=wbsearchentities&format=json&origin=*'
-        +'&language='+encodeURIComponent(lang||'fr')+'&uselang='+encodeURIComponent(lang||'fr')
-        +'&limit=10&search='+encodeURIComponent(q);
-      const r=await fetch(u,{cache:'no-store'}); if(!r.ok)return [];
-      const j=await r.json(); return j?.search||[];
-    }catch(e){ return []; }
-  }
-  async function wikidataEntities(ids, lang){
-    if(!ids.length) return [];
-    try{
-      const u='https://www.wikidata.org/w/api.php?action=wbgetentities&format=json&origin=*'
-        +'&ids='+encodeURIComponent(ids.join('|'))
-        +'&props=claims|labels|descriptions|aliases&languages='+encodeURIComponent((lang||'fr')+'|en');
-      const r=await fetch(u,{cache:'no-store'}); if(!r.ok)return [];
-      const j=await r.json(); return ids.map(id=>j?.entities?.[id]).filter(Boolean);
-    }catch(e){ return []; }
-  }
-  function claimString(entity, prop){
-    const c=entity?.claims?.[prop]?.[0]?.mainsnak?.datavalue?.value;
-    if(typeof c==='string') return c;
-    if(c?.id) return c.id;
-    if(c?.['numeric-id']) return 'Q'+c['numeric-id'];
-    return '';
-  }
-  function labelOf(entity, lang){ return entity?.labels?.[lang]?.value || entity?.labels?.en?.value || ''; }
-  function descOf(entity, lang){ return entity?.descriptions?.[lang]?.value || entity?.descriptions?.en?.value || ''; }
-  function aliasesOf(entity, lang){ return (entity?.aliases?.[lang]||[]).map(x=>x.value).join(' '); }
 
-  // 1. Wikidata : on cherche l'entité correspondant réellement à l'artiste.
-  const langs=['fr','en'];
-  for(const lang of langs){
-    const searches=[];
-    if(name) searches.push(name);
-    if(name && song) searches.push(name+' '+song);
-    if(song && !name) searches.push(song);
-    for(const q of searches){
-      const hits=await wikidataSearch(q,lang);
-      if(!hits.length) continue;
-      const ids=hits.map(h=>h.id).filter(Boolean);
-      const entities=await wikidataEntities(ids,lang);
-      const candidates=entities.map((e,i)=>{
-        const label=labelOf(e,lang);
-        const desc=descOf(e,lang);
-        const aliases=aliasesOf(e,lang);
-        const text=label+' '+desc+' '+aliases;
-        const exact=normText(label)===normText(name) ? 100 : 0;
-        const aliasExact=normText(aliases).split(/\\s+/).includes(normText(name)) ? 15 : 0;
-        const musical=imageLooksMusical(text) ? 45 : 0;
-        const wrong=looksObviouslyWrong(text) ? -100 : 0;
-        const hasImage=e?.claims?.P18?.length ? 35 : 0;
-        const hasHumanOrGroup=e?.claims?.P31?.some(c=>{
-          const id=c?.mainsnak?.datavalue?.value?.id || '';
-          return ['Q5','Q215380','Q43229','Q1053574','Q2088357'].includes(id);
-        }) ? 20 : 0;
-        return {e,score:exact+aliasExact+musical+wrong+hasImage+hasHumanOrGroup,index:i};
-      }).filter(x=>x.e?.claims?.P18?.length && x.score>40).sort((a,b)=>b.score-a.score);
-
-      for(const c of candidates){
-        const file=claimString(c.e,'P18');
-        if(!file || looksObviouslyWrong(file)) continue;
-        const url='https://commons.wikimedia.org/wiki/Special:Redirect/file/'+encodeURIComponent(file);
-        if(await verifyImage(url)){
-          const credit='Source : Wikimedia Commons / Wikidata';
-          cacheSet(CACHE_KEY,{url,credit});
-          return url;
-        }
-      }
-    }
-  }
-
-  // 2. Wikipédia : uniquement avec des recherches explicitement musicales,
-  // jamais avec une simple recherche du mot ambigu.
-  async function wikiSearch(lang,q){
+  async function pageImage(lang, title){
     try{
-      const u='https://'+lang+'.wikipedia.org/w/api.php?action=query&list=search&format=json&origin=*'
-        +'&srlimit=10&srnamespace=0&srsearch='+encodeURIComponent(q);
-      const r=await fetch(u,{cache:'no-store'}); if(!r.ok)return [];
-      const j=await r.json(); return j?.query?.search||[];
-    }catch(e){ return []; }
-  }
-  async function wikiPageImage(lang,pageTitle){
-    try{
-      const u='https://'+lang+'.wikipedia.org/w/api.php?action=query&format=json&origin=*'
-        +'&redirects=1&prop=pageimages|info&inprop=url&piprop=thumbnail&pithumbsize=800'
-        +'&titles='+encodeURIComponent(pageTitle);
-      const r=await fetch(u,{cache:'no-store'}); if(!r.ok)return null;
-      const j=await r.json(); const page=Object.values(j?.query?.pages||{})[0];
-      const url=page?.thumbnail?.source || page?.original?.source || '';
-      return url ? {url, title:page?.title||pageTitle, fullurl:page?.fullurl||''} : null;
+      const u="https://"+lang+".wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1&prop=pageimages|info&inprop=url&piprop=thumbnail&pithumbsize=800&titles="+encodeURIComponent(title);
+      const r=await fetch(u,{cache:"no-store"});
+      if(!r.ok) return null;
+      const j=await r.json();
+      const pages=j?.query?.pages||{};
+      const page=Object.values(pages)[0];
+      const url=page?.thumbnail?.source || page?.original?.source || "";
+      return url ? {url,credit:page?.fullurl||"Source : Wikipédia"} : null;
     }catch(e){ return null; }
   }
+
+  async function searchTitles(lang,q){
+    try{
+      const u="https://"+lang+".wikipedia.org/w/api.php?action=query&list=search&srsearch="+encodeURIComponent(q)+"&format=json&origin=*&srlimit=8&srnamespace=0";
+      const r=await fetch(u,{cache:"no-store"});
+      if(!r.ok) return [];
+      const j=await r.json();
+      return (j?.query?.search||[]).map(x=>x.title).filter(Boolean);
+    }catch(e){ return []; }
+  }
+
+  const tried=new Set();
+  async function tryTitle(lang,t){
+    const key=lang+'|'+t.toLowerCase();
+    if(tried.has(key)) return "";
+    tried.add(key);
+    const result=await pageImage(lang,t);
+    if(result && await verifyImage(result.url)){
+      cacheSet(CACHE_KEY,{url:result.url,credit:result.credit||"Source : Wikipédia"});
+      return result.url;
+    }
+    return "";
+  }
+
   for(const lang of langs){
-    const queries=[];
-    if(name) queries.push('"'+name+'" (groupe OR chanteur OR chanteuse OR musicien OR musicienne OR artiste)');
-    if(name) queries.push('"'+name+'" musique');
-    if(name && song) queries.push('"'+name+'" "'+song+'" musique');
+    // 1. Page directe de l'artiste (PSY, Stromae, etc.).
+    if(name){
+      const img=await tryTitle(lang,name);
+      if(img) return img;
+    }
+
+    // 2. Recherche combinée artiste + morceau : utile notamment pour Gangnam Style / PSY.
     for(const q of queries){
-      const hits=await wikiSearch(lang,q);
-      for(const h of hits){
-        const titleFound=h.title||'';
-        if(looksObviouslyWrong(titleFound)) continue;
-        const snippet=h.snippet||'';
-        if(!imageLooksMusical(titleFound+' '+snippet)) continue;
-        const result=await wikiPageImage(lang,titleFound);
-        if(result && await verifyImage(result.url)){
-          const credit='Source : Wikipédia '+lang.toUpperCase();
-          cacheSet(CACHE_KEY,{url:result.url,credit});
-          return result.url;
-        }
+      const titles=await searchTitles(lang,q);
+      for(const t of titles){
+        const img=await tryTitle(lang,t);
+        if(img) return img;
       }
     }
   }
-  return '';
+  return "";
 }
 
 function paintCalendarCellPhoto(cell, url){
@@ -2088,63 +2003,14 @@ parseHash();
     return String.fromCodePoint(first) + String.fromCodePoint(second);
   }
 
-  // Normalise aussi les clés du dictionnaire : ainsi "Corée du Sud" devient
-  // "coree du sud" et reste correctement reconnu après suppression des accents.
-  const COUNTRY_MAP_NORMALIZED = Object.fromEntries(
-    Object.entries(COUNTRY_MAP).map(([name, code]) => [
-      name.toLowerCase().normalize("NFD").replace(/\p{Diacritic}+/gu, "").trim(),
-      code
-    ])
-  );
-
-  // Pays supplémentaires + variantes courantes rencontrées dans le fichier Excel.
-  Object.assign(COUNTRY_MAP_NORMALIZED, {
-    "cameroun":"CM",
-    "cameroon":"CM",
-    "afrique du sud":"ZA",
-    "south africa":"ZA",
-    "nigeria":"NG",
-    "cape-vert":"CV",
-    "cap-vert":"CV",
-    "cap vert":"CV",
-    "cape verde":"CV",
-    "cote d'ivoire":"CI",
-    "cote d ivoire":"CI",
-    "ivory coast":"CI",
-    "côte d'ivoire":"CI",
-    "mongolie":"MN",
-    "mongolia":"MN",
-    "iran":"IR",
-    "republique islamique d'iran":"IR",
-    "argentine":"AR",
-    "islande":"IS",
-    "nouvelle-zelande":"NZ",
-    "nouvelle zelande":"NZ",
-    "new zealand":"NZ",
-    "coree du sud":"KR",
-    "south korea":"KR",
-    "republique de coree":"KR",
-    "coree":"KR"
-  });
-
   function extractCountryCode(origin){
     if(!origin) return "";
-    const s = String(origin).toLowerCase()
-      .normalize("NFD").replace(/\p{Diacritic}+/gu, "")
-      .replace(/[’']/g, "'")
-      .replace(/[\u2010-\u2015]/g, "-")
-      .trim();
-
-    // Code ISO déjà présent dans la cellule (ex. "KR", "ZA", "CM").
-    if(/^[a-z]{2}$/.test(s)) return s.toUpperCase();
-
-    if(COUNTRY_MAP_NORMALIZED[s]) return COUNTRY_MAP_NORMALIZED[s];
-
-    // On cherche d'abord les noms les plus longs pour éviter les collisions
-    // (ex. "Corée du Sud" avant "Corée").
-    const keys = Object.keys(COUNTRY_MAP_NORMALIZED).sort((a,b)=>b.length-a.length);
-    for(const key of keys){
-      if(s === key || s.includes(key)) return COUNTRY_MAP_NORMALIZED[key];
+    const s = origin.toLowerCase().normalize("NFD").replace(/\p{Diacritic}+/gu,"").trim();
+    // try exact map hit
+    if(COUNTRY_MAP[s]) return COUNTRY_MAP[s];
+    // try contains
+    for(const key of Object.keys(COUNTRY_MAP)){
+      if(s.includes(key)) return COUNTRY_MAP[key];
     }
     return "";
   }
@@ -2921,18 +2787,6 @@ if(grid){ grid.innerHTML=''; window.__gridCleared__=true; }if(grid){ grid.scroll
 </script>
 
 
-<script id="artistPhotoCacheMigration">
-(function(){
-  try{
-    // Les anciennes clés AUTHOR_IMG / V3 pouvaient contenir des correspondances erronées.
-    // Elles sont volontairement supprimées : la nouvelle recherche V4 repart de l'identité musicale.
-    for(const k of Object.keys(localStorage)){
-      if(k.startsWith('AUTHOR_IMG_V3_') || k.startsWith('AUTHOR_IMG_')) localStorage.removeItem(k);
-    }
-  }catch(e){}
-})();
-</script>
-
 <!-- === AUTOLOAD musique.xlsx (même répertoire) === -->
 <script>
 (function(){
@@ -3007,10 +2861,33 @@ document.addEventListener("DOMContentLoaded", () => {
     return j?.query?.search?.[0]?.title || null;
   }
   async function findArtistImageFichesStyle(data, langDefault){
+    // data: {Auteur, Titre, Lang, Photo}
+    // 1) URL fournie en priorité
     if(data?.Photo && /^https?:\/\//i.test(String(data.Photo).trim())) return String(data.Photo).trim();
-    const author=String(data?.Auteur||'').trim();
-    const title=String(data?.Titre||'').trim();
-    return await findReliableArtistImage(author,title,'detail');
+    const langs = [];
+    const base = (data?.Lang || langDefault || 'fr').trim().toLowerCase();
+    if(base) langs.push(base);
+    for(const L of ['fr','en','es','de','it']) if(!langs.includes(L)) langs.push(L);
+
+    const queries = [];
+    if(data?.Auteur) queries.push(data.Auteur);
+    if(data?.Titre)  queries.push(data.Titre);
+    if(data?.Auteur && data?.Titre) queries.push(`${data.Titre} ${data.Auteur}`);
+
+    for(const L of langs){
+      for(const q of queries){
+        const img = await fetchWikiSummary(L, q);
+        if(img) return img;
+      }
+      for(const q of queries){
+        const t = await fetchWikiSearch(L, q);
+        if(t){
+          const img = await fetchWikiSummary(L, t);
+          if(img) return img;
+        }
+      }
+    }
+    return '';
   }
 
   // --- DOM helpers ---
