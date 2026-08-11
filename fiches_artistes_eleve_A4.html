@@ -329,24 +329,120 @@ function ensureKeys(row){
   };
 }
 
-/* ====== Récup photo : priorité colonne Photo, sinon Wikipédia ====== */
+/* ====== Récup photo : identification stricte de l'artiste ======
+   Priorité : colonne Photo > Wikidata/Wikimedia Commons > Wikipédia.
+   On ne recherche jamais une photo à partir du titre seul.
+   Cela évite les faux positifs comme Téléphone → téléphone ou Clou → clous.
+*/
+function imageUrlIsUsable(url){
+  return new Promise(resolve=>{
+    if(!url) return resolve(false);
+    const im=new Image(); let done=false;
+    const finish=v=>{if(done)return;done=true;clearTimeout(timer);resolve(v)};
+    const timer=setTimeout(()=>finish(false),6000);
+    im.onload=()=>finish(im.naturalWidth>40 && im.naturalHeight>40);
+    im.onerror=()=>finish(false);
+    im.src=url;
+  });
+}
+function cleanArtistName(s){ return String(s||'').replace(/\s+/g,' ').trim(); }
+
+async function wikidataSearchArtist(name, lang, title){
+  const artist=cleanArtistName(name); if(!artist) return null;
+  const languages=[lang,'fr','en'].filter((v,i,a)=>v && a.indexOf(v)===i);
+  const queries=[artist];
+  if(title) queries.push(`${artist} ${cleanArtistName(title)}`);
+
+  async function search(q,language){
+    const u='https://www.wikidata.org/w/api.php?action=wbsearchentities'
+      +'&search='+encodeURIComponent(q)+'&language='+encodeURIComponent(language)
+      +'&uselang='+encodeURIComponent(language)+'&format=json&origin=*&limit=8';
+    const r=await fetch(u,{cache:'no-store'}); if(!r.ok) return [];
+    const j=await r.json(); return j?.search||[];
+  }
+
+  const candidates=[], seen=new Set();
+  for(const language of languages) for(const q of queries){
+    try{
+      for(const x of await search(q,language)){
+        if(x.id && !seen.has(x.id)){seen.add(x.id);candidates.push(x);}
+      }
+    }catch{}
+  }
+
+  const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  const wanted=norm(artist);
+
+  for(const c of candidates.slice(0,20)){
+    try{
+      const u='https://www.wikidata.org/w/api.php?action=wbgetentities'
+        +'&ids='+encodeURIComponent(c.id)
+        +'&props=labels|descriptions|claims|aliases'
+        +'&languages=fr|en|'+encodeURIComponent(lang)
+        +'&format=json&origin=*';
+      const r=await fetch(u,{cache:'no-store'}); if(!r.ok) continue;
+      const e=(await r.json())?.entities?.[c.id]; if(!e) continue;
+
+      const names=[
+        ...Object.values(e.labels||{}).map(x=>x.value),
+        ...Object.values(e.aliases||{}).flat().map(x=>x.value)
+      ];
+      if(!names.some(x=>norm(x)===wanted)) continue;
+
+      const descriptions=Object.values(e.descriptions||{}).map(x=>x.value).join(' ').toLowerCase();
+      const claims=e.claims||{};
+      const p31=(claims.P31||[]).map(x=>x.mainsnak?.datavalue?.value?.id).filter(Boolean);
+      const p106=(claims.P106||[]).map(x=>x.mainsnak?.datavalue?.value?.id).filter(Boolean);
+
+      const musicalIds=new Set(['Q5','Q215380','Q639669','Q177220','Q753110','Q488205','Q2088357']);
+      const musicalWords=/musicien|musicienne|chanteur|chanteuse|artiste musical|groupe musical|groupe de musique|band\b|singer|musician|musical group|composer|compositeur|compositrice|rock group|pop group|duo musical/i;
+      const isMusical=p31.some(id=>musicalIds.has(id)) || p106.some(id=>musicalIds.has(id)) || musicalWords.test(descriptions);
+      if(!isMusical) continue;
+
+      const p18=claims.P18?.[0]?.mainsnak?.datavalue?.value;
+      if(!p18) continue;
+      const fileUrl='https://commons.wikimedia.org/wiki/Special:Redirect/file/'+encodeURIComponent(p18);
+      if(await imageUrlIsUsable(fileUrl)) return {url:fileUrl,qid:c.id};
+    }catch{}
+  }
+  return null;
+}
+
 async function fetchWikiImageByTitle(title, lang){
-  const safe = encodeURIComponent(title.replaceAll(' ','_'));
-  const url = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${safe}`;
-  const r = await fetch(url); if(!r.ok) throw new Error('wiki fail'); const j=await r.json();
-  if(j.thumbnail?.source) return j.thumbnail.source; if(j.originalimage?.source) return j.originalimage.source; throw new Error('no img');
+  const safe=encodeURIComponent(title.replaceAll(' ','_'));
+  const url=`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${safe}`;
+  const r=await fetch(url,{cache:'no-store'}); if(!r.ok) throw new Error('wiki fail');
+  const j=await r.json();
+  if(j.thumbnail?.source && await imageUrlIsUsable(j.thumbnail.source)) return j.thumbnail.source;
+  if(j.originalimage?.source && await imageUrlIsUsable(j.originalimage.source)) return j.originalimage.source;
+  throw new Error('no img');
 }
 async function searchWikipedia(query, lang){
-  const api = `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*`;
-  const r = await fetch(api); if(!r.ok) throw new Error('search fail'); const j=await r.json(); return j?.query?.search?.[0]?.title||null;
+  const api=`https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=5`;
+  const r=await fetch(api,{cache:'no-store'}); if(!r.ok) throw new Error('search fail');
+  const j=await r.json(); return j?.query?.search?.[0]?.title||null;
 }
 async function findArtistImage(d, langDefault){
   if(d.Photo && /^https?:\/\//i.test(d.Photo.trim())) return d.Photo.trim();
-  const langs=[]; const base=(d.Lang||langDefault||'fr').trim().toLowerCase(); if(base) langs.push(base); if(base!=='en') langs.push('en'); if(base!=='fr') langs.push('fr');
-  const queries=[]; if(d.Auteur) queries.push(d.Auteur); if(d.Titre) queries.push(d.Titre); if(d.Auteur&&d.Titre) queries.push(`${d.Titre} ${d.Auteur}`);
+  const artist=cleanArtistName(d.Auteur), title=cleanArtistName(d.Titre);
+  if(!artist) return null;
+  const base=(d.Lang||langDefault||'fr').trim().toLowerCase();
+
+  // Identification prioritaire : Wikidata + photo Wikimedia de l'entité musicale.
+  const wd=await wikidataSearchArtist(artist,base,title);
+  if(wd) return wd.url;
+
+  // Secours Wikipédia : page de l'artiste uniquement, jamais le titre seul.
+  const langs=[base,'fr','en'].filter((v,i,a)=>v && a.indexOf(v)===i);
+  const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
   for(const lang of langs){
-    for(const q of queries){ try{ return await fetchWikiImageByTitle(q,lang);}catch{} }
-    for(const q of queries){ try{ const t=await searchWikipedia(q,lang); if(t){ try{ return await fetchWikiImageByTitle(t,lang);}catch{} } }catch{} }
+    try{ const img=await fetchWikiImageByTitle(artist,lang); if(img) return img; }catch{}
+    try{
+      const t=await searchWikipedia(artist,lang);
+      if(t && norm(t)===norm(artist)){
+        const img=await fetchWikiImageByTitle(t,lang); if(img) return img;
+      }
+    }catch{}
   }
   return null;
 }
