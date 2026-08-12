@@ -543,6 +543,12 @@ async function findArtistImage(d, langDefault){
 
   if(d.Photo && /^https?:\/\//i.test(d.Photo.trim())) return d.Photo.trim();
 
+  // Siyahamba : photo explicitement liée au chant lui-même.
+  // On ne prend surtout pas une photo générique de "chant traditionnel".
+  if(normalizeArtistKey(d.Titre) === "siyahamba"){
+    return "https://commons.wikimedia.org/wiki/Special:Redirect/file/Siyahamba%20United%20Reformed%20Church%20General%20Assembly%202007.jpg";
+  }
+
   // 1) PRIORITÉ ABSOLUE : même photo que index-14.html.
   const knownKey = normalizeArtistKey(name);
   const knownPhoto = KNOWN_ARTIST_PHOTOS[knownKey];
