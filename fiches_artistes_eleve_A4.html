@@ -118,7 +118,7 @@
 <header>
   <div class="wrap" style="padding:0">
     <h1>Fiches artistes (QR + drapeaux étendus) — v17i</h1>
-    <div class="status" id="status">🛈 Charge ton fichier (xlsx/csv). Colonnes : Titre, Auteur, Origine, Date, YouTube, Lang (optionnel), Photo (URL, optionnel).</div>
+    <div class="status" id="status">🛈 Charge ton fichier (xlsx/csv). Colonnes : Date, Pays, Année, Artiste / Compositeur, Œuvre / morceau, Genre, Instruments, Lien YouTube (vérifiée).</div>
   </div>
 </header>
 
@@ -162,7 +162,7 @@ function formatJJMMAAAA(d){
   function out(dt){ return pad2(dt.getDate())+'-'+pad2(dt.getMonth()+1)+'-'+dt.getFullYear(); }
   if(d==null) return '';
   if(d instanceof Date && !isNaN(d)) return out(d);
-  if(typeof d==='number' && isFinite(d)){ const ms=(d-25569)*86400000; const dt=new Date(ms); return isNaN(dt)? '': out(dt); }
+  if(typeof d==='number' && isFinite(d)){ const whole=Math.floor(d); const epoch=Date.UTC(1899,11,30); const dt=new Date(epoch + whole*86400000); return isNaN(dt)? '': out(dt); }
   if(typeof d==='string'){
     const s=d.trim(); if(!s) return '';
     let m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
@@ -319,13 +319,34 @@ function flagForOrigin(origRaw){
   return '';
 }
 
+function cleanHeader(s){
+  return String(s||"")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .toLowerCase().replace(/[’'`]/g,"")
+    .replace(/[-–—]/g," ").replace(/[().,]/g," ")
+    .replace(/\s+/g," ").trim();
+}
+function getField(row, aliases){
+  const keys = Object.keys(row||{});
+  const normalized = new Map(keys.map(k=>[cleanHeader(k),k]));
+  for(const alias of aliases){
+    const k=normalized.get(cleanHeader(alias));
+    if(k!==undefined) return row[k] ?? "";
+  }
+  return "";
+}
 function ensureKeys(row){
-  const map={}; for(const k of Object.keys(row)){ map[k.toLowerCase()]=k; }
-  const pick=k=>row[map[k]]??'';
   return {
-    Titre:pick('titre'), Auteur:pick('auteur'), Origine:pick('origine'),
-    Date:pick('date'), YouTube:pick('youtube'), Lang:(row[map['lang']]??'').toString().trim(),
-    Photo:pick('photo')
+    Titre: getField(row, ["Œuvre / morceau","Oeuvre / morceau","Œuvre/morceau","Titre","titre"]),
+    Auteur: getField(row, ["Artiste / Compositeur","Artiste/Compositeur","Artiste","Compositeur","Auteur","auteur"]),
+    Origine: getField(row, ["Pays","Origine","origine"]),
+    Date: getField(row, ["Date","date"]),
+    Annee: getField(row, ["Année","Annee","année de création","annee de creation"]),
+    Genre: getField(row, ["Genre","genre"]),
+    Instruments: getField(row, ["Instruments","instruments"]),
+    YouTube: getField(row, ["Lien YouTube (vérifiée)","Lien YouTube (verifiee)","Lien YouTube","YouTube","youtube"]),
+    Lang: getField(row, ["Lang","lang"]),
+    Photo: getField(row, ["Photo","photo"])
   };
 }
 
@@ -454,13 +475,28 @@ function normalizeYouTube(link){
   return s;
 }
 
+function normalizeCreationYear(value){
+  if(value==null || value==="") return "";
+  if(typeof value==="number" && isFinite(value)) return String(Math.trunc(value));
+  const m=String(value).match(/\b(1[0-9]{3}|20[0-9]{2}|21[0-9]{2})\b/);
+  return m ? m[1] : String(value).trim();
+}
+function displayWorkTitle(d){
+  const title=String(d.Titre||"").trim();
+  const year=normalizeCreationYear(d.Annee);
+  if(!title) return "";
+  if(!year) return title;
+  const clean=title.replace(/\s*\((1[0-9]{3}|20[0-9]{2}|21[0-9]{2})\)\s*$/,"").trim();
+  return `${clean} (${year})`;
+}
+
 function makeCard(d){
   const c=document.createElement('div'); c.className='card';
   const dateTxt = formatJJMMAAAA(d.Date);
   const flag = flagForOrigin(d.Origine);
   c.innerHTML=`
     <div class="meta">
-      <div class="title">${d.Titre||''}</div>
+      <div class="title">${displayWorkTitle(d)}</div>
       <div class="row"><div class="lab">Auteur</div><div class="val">${d.Auteur||''}</div></div>
       <div class="row"><div class="lab">Origine</div><div class="val"><span class="flag">${flag||''}</span>${d.Origine||''}</div></div>
       <div class="row"><div class="lab">Date d’écoute</div><div class="val">${dateTxt||'—'}</div></div>
@@ -506,7 +542,7 @@ document.getElementById('btnMake').addEventListener('click', async ()=>{
       const wb=XLSX.read(buf,{type:'array'}); if(!wb.SheetNames?.length){ say('Aucune feuille'); return; } const ws=wb.Sheets[wb.SheetNames[0]]; rows=XLSX.utils.sheet_to_json(ws,{defval:''});
     }
     if(!rows.length){ say('Aucune donnée'); return; }
-    say(`${rows.length} ligne(s) lue(s). Génération…`, true);
+    say(`${rows.length} ligne(s) lue(s). Génération des fiches depuis musique.xlsx…`, true);
     const mapped = rows.map(ensureKeys); const groups = chunk(mapped,4);
     pagesEl.innerHTML='';
     for(const g of groups){
@@ -556,7 +592,7 @@ document.getElementById('btnPDF').addEventListener('click', async ()=>{
       }
       let buf;
       try{
-        const resp = await fetch(absURL, {cache:'no-store'});
+        const resp = await fetch(absURL + "?ts=" + Date.now(), {cache:'no-store'});
         if(!resp.ok) throw new Error('HTTP '+resp.status);
         buf = await resp.arrayBuffer();
       }catch(e){
