@@ -355,16 +355,26 @@ function ensureKeys(row){
    On ne recherche jamais une photo à partir du titre seul.
    Cela évite les faux positifs comme Téléphone → téléphone ou Clou → clous.
 */
+const IMAGE_CACHE = new Map();
+const IMAGE_PENDING = new Map();
+
 function imageUrlIsUsable(url){
-  return new Promise(resolve=>{
-    if(!url) return resolve(false);
+  if(!url) return Promise.resolve(false);
+  if(IMAGE_CACHE.has(url)) return Promise.resolve(IMAGE_CACHE.get(url));
+  if(IMAGE_PENDING.has(url)) return IMAGE_PENDING.get(url);
+  const p = new Promise(resolve=>{
     const im=new Image(); let done=false;
-    const finish=v=>{if(done)return;done=true;clearTimeout(timer);resolve(v)};
-    const timer=setTimeout(()=>finish(false),6000);
+    const finish=v=>{
+      if(done)return; done=true; clearTimeout(timer);
+      IMAGE_CACHE.set(url,v); IMAGE_PENDING.delete(url); resolve(v);
+    };
+    const timer=setTimeout(()=>finish(false),2500);
     im.onload=()=>finish(im.naturalWidth>40 && im.naturalHeight>40);
     im.onerror=()=>finish(false);
     im.src=url;
   });
+  IMAGE_PENDING.set(url,p);
+  return p;
 }
 function cleanArtistName(s){ return String(s||'').replace(/\s+/g,' ').trim(); }
 
@@ -443,31 +453,187 @@ async function searchWikipedia(query, lang){
   const r=await fetch(api,{cache:'no-store'}); if(!r.ok) throw new Error('search fail');
   const j=await r.json(); return j?.query?.search?.[0]?.title||null;
 }
-async function findArtistImage(d, langDefault){
-  if(d.Photo && /^https?:\/\//i.test(d.Photo.trim())) return d.Photo.trim();
-  const artist=cleanArtistName(d.Auteur), title=cleanArtistName(d.Titre);
-  if(!artist) return null;
-  const base=(d.Lang||langDefault||'fr').trim().toLowerCase();
+const ARTIST_IMAGE_CACHE = new Map();
+const ARTIST_IMAGE_PENDING = new Map();
 
-  // Identification prioritaire : Wikidata + photo Wikimedia de l'entité musicale.
-  const wd=await wikidataSearchArtist(artist,base,title);
-  if(wd) return wd.url;
-
-  // Secours Wikipédia : page de l'artiste uniquement, jamais le titre seul.
-  const langs=[base,'fr','en'].filter((v,i,a)=>v && a.indexOf(v)===i);
-  const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
-  for(const lang of langs){
-    try{ const img=await fetchWikiImageByTitle(artist,lang); if(img) return img; }catch{}
-    try{
-      const t=await searchWikipedia(artist,lang);
-      if(t && norm(t)===norm(artist)){
-        const img=await fetchWikiImageByTitle(t,lang); if(img) return img;
-      }
-    }catch{}
-  }
-  return null;
+function cacheGet(key){
+  try{ const s=localStorage.getItem(key); if(!s) return null; return JSON.parse(s); }catch(e){ return null; }
+}
+function cacheSet(key,val){
+  try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){}
 }
 
+/* Même recherche photo que index-14.html :
+   1. Wikipédia FR par nom exact de l'artiste
+   2. Wikipédia EN par nom exact de l'artiste
+   Le résultat est mis en cache avec la même clé localStorage. */
+// Même résolution prioritaire que dans index-14.html.
+// Ces artistes ont une photo explicitement choisie dans index-14.html,
+// ce qui évite les faux positifs Wikipédia comme "Téléphone" (objet)
+// ou "Clou" (objet/outil).
+// Titres Wikipédia exacts pour les artistes dont le nom est ambigu.
+// Cela évite les recherches génériques qui peuvent retourner une page sans rapport.
+const EXACT_WIKI_TITLES = {
+  "helena": "Helena (chanteuse)",
+  "héléna": "Helena (chanteuse)",
+  "lous and the yakuza": "Lous and the Yakuza",
+  "sérgio mendes & brasil '66": "Sérgio Mendes",
+  "sergio mendes & brasil '66": "Sérgio Mendes",
+  "psy": "Psy (chanteur)",
+  "childish gambino": "Childish Gambino",
+  "journey": "Journey (groupe)",
+  "phoenix": "Phoenix (groupe)",
+  "eloïz": "Eloïz",
+  "eloiz": "Eloïz",
+  "pierre garnier": "Pierre Garnier (chanteur)",
+  "raphaël": "Raphaël (chanteur français)",
+  "raphael": "Raphaël (chanteur français)"
+};
+
+// Images de secours validées lorsque Wikipédia n'a pas de vignette exploitable.
+const EXTRA_KNOWN_ARTIST_PHOTOS = {
+  "paco": "https://i.ytimg.com/vi/hsmAqYE1fTg/hqdefault.jpg",
+  // Portrait vérifié d'Eloïz associé à l'actualité de "Hey Bro".
+  "eloïz": "https://storage.gra.cloud.ovh.net/v1/AUTH_1db17c9a9c714ce39f508d240f11d920/octopus-bucket/1d49d413-ed4f-41c7-9ae5-35dfcb3dad7c/6240c0ff-e534-43f6-9d84-88476d7ff03b.jpg",
+  "eloiz": "https://storage.gra.cloud.ovh.net/v1/AUTH_1db17c9a9c714ce39f508d240f11d920/octopus-bucket/1d49d413-ed4f-41c7-9ae5-35dfcb3dad7c/6240c0ff-e534-43f6-9d84-88476d7ff03b.jpg"
+};
+
+const KNOWN_ARTIST_PHOTOS = {
+  "pomme": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Pomme%20Bourges%20Autoharpe.jpg",
+  "indochine": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Indochine%202009.JPG",
+  "téléphone": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Festival%20des%20Vieilles%20Charrues%202016%20-%20Les%20Insus%20-%20039.jpg",
+  "telephone": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Festival%20des%20Vieilles%20Charrues%202016%20-%20Les%20Insus%20-%20039.jpg",
+  "clou": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Clou%20Cigale%2018-11-2021.jpg",
+  "hervé": "https://commons.wikimedia.org/wiki/Special:Redirect/file/P2N2023Herve_1.jpg",
+  "herve": "https://commons.wikimedia.org/wiki/Special:Redirect/file/P2N2023Herve_1.jpg",
+  "the hu": "https://commons.wikimedia.org/wiki/Special:Redirect/file/2019%20RiP%20The%20Hu%20-%20by%202eight%20-%20ZSC2060.jpg",
+  "childish gambino": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Childish%20Gambino.jpg",
+  "eloïz": "https://img.nrj.fr/ExqOtD4jvW1ir8py8Af9BOmWrfI%3D/medias%2F2023%2F03%2Fyti4vh4m2ah0dxy03lfkjxrjrncdfnnazdmtaxkvsie_6422a7ddb751e.png",
+  "eloiz": "https://img.nrj.fr/ExqOtD4jvW1ir8py8Af9BOmWrfI%3D/medias%2F2023%2F03%2Fyti4vh4m2ah0dxy03lfkjxrjrncdfnnazdmtaxkvsie_6422a7ddb751e.png"
+};
+
+function normalizeArtistKey(s){
+  return String(s||"")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"")
+    .toLowerCase()
+    .trim();
+}
+
+// Recherche directe d'une vignette sur une page Wikipédia précise.
+// Important : on ne dépend pas d'une fonction externe absente du fichier.
+async function fetchExactWikiImage(title, lang="fr"){
+  if(!title) return "";
+  try{
+    const api = `https://${lang}.wikipedia.org/w/api.php?action=query&format=json&origin=*&prop=pageimages|info&inprop=url&piprop=thumbnail&pithumbsize=500&titles=${encodeURIComponent(title)}`;
+    const r = await fetch(api);
+    if(!r.ok) return "";
+    const j = await r.json();
+    const pages = j?.query?.pages || {};
+    const page = Object.values(pages)[0];
+    return page?.thumbnail?.source || "";
+  }catch(e){
+    return "";
+  }
+}
+
+async function findArtistImage(d, langDefault){
+  const name = cleanArtistName(d.Auteur);
+  if(!name) return null;
+
+  if(d.Photo && /^https?:\/\//i.test(d.Photo.trim())) return d.Photo.trim();
+
+  // 1) PRIORITÉ ABSOLUE : même photo que index-14.html.
+  const knownKey = normalizeArtistKey(name);
+  const knownPhoto = KNOWN_ARTIST_PHOTOS[knownKey];
+  if(knownPhoto) return knownPhoto;
+
+  // Artistes non ambigus : demander directement la bonne page Wikipédia.
+  // On utilise ensuite exactement la vignette renvoyée par Wikipédia.
+  const exactWikiTitle = EXACT_WIKI_TITLES[knownKey];
+  if(exactWikiTitle){
+    try{
+      const exactImg = await fetchExactWikiImage(exactWikiTitle, "fr");
+      if(exactImg) return exactImg;
+    }catch(e){}
+  }
+
+  // Dernier secours explicite pour les artistes sans page Wikipédia exploitable.
+  const extraPhoto = EXTRA_KNOWN_ARTIST_PHOTOS[knownKey];
+  if(extraPhoto) return extraPhoto;
+
+  // 2) Réutiliser la photo unifiée déjà enregistrée par index-14.html.
+  const unifiedKey = "UNIFIED_ARTIST_IMG_V2_" + knownKey;
+  try{
+    const u = localStorage.getItem(unifiedKey);
+    if(u){
+      const parsed = JSON.parse(u);
+      if(parsed?.url) return parsed.url;
+    }
+  }catch(e){}
+
+  const key = "AUTHOR_IMG_" + name.toLowerCase();
+  if(ARTIST_IMAGE_CACHE.has(key)) return ARTIST_IMAGE_CACHE.get(key);
+
+  const cached = cacheGet(key);
+  if(cached && cached.url){
+    ARTIST_IMAGE_CACHE.set(key, cached.url);
+    return cached.url;
+  }
+  if(ARTIST_IMAGE_PENDING.has(key)) return ARTIST_IMAGE_PENDING.get(key);
+
+  const pending = (async()=>{
+    // 1) Page Wikipédia exacte si l'artiste est ambigu.
+    const exactTitle = EXACT_WIKI_TITLES[normalizeArtistKey(name)];
+    if(exactTitle){
+      const exactThumb = await fetchExactWikiImage(exactTitle, "fr");
+      if(exactThumb) return exactThumb;
+    }
+
+    // 2) Wikipédia FR
+    try{
+      const url = "https://fr.wikipedia.org/w/api.php?action=query&format=json&origin=*&prop=pageimages|info&inprop=url&piprop=thumbnail&pithumbsize=400&titles=" + encodeURIComponent(name);
+      const r = await fetch(url);
+      if(r.ok){
+        const j = await r.json();
+        const pages = j?.query?.pages || {};
+        const first = Object.values(pages)[0];
+        const thumb = first?.thumbnail?.source;
+        if(thumb){
+          cacheSet(key, {url: thumb, credit: first?.fullurl ? ("Source : " + first.fullurl) : ""});
+          return thumb;
+        }
+      }
+    }catch(e){}
+
+    // 2) Wikipédia EN — exactement comme index-14.html
+    try{
+      const url = "https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&prop=pageimages|info&inprop=url&piprop=thumbnail&pithumbsize=400&titles=" + encodeURIComponent(name);
+      const r = await fetch(url);
+      if(r.ok){
+        const j = await r.json();
+        const pages = j?.query?.pages || {};
+        const first = Object.values(pages)[0];
+        const thumb = first?.thumbnail?.source;
+        if(thumb){
+          cacheSet(key, {url: thumb, credit: first?.fullurl ? ("Source : " + first.fullurl) : ""});
+          return thumb;
+        }
+      }
+    }catch(e){}
+
+    return null;
+  })();
+
+  ARTIST_IMAGE_PENDING.set(key, pending);
+  try{
+    const result = await pending;
+    ARTIST_IMAGE_CACHE.set(key, result);
+    return result;
+  }finally{
+    ARTIST_IMAGE_PENDING.delete(key);
+  }
+}
 function normalizeYouTube(link){
   if(!link) return ''; let s=(''+link).trim();
   if(/^[A-Za-z0-9_\-]{11}$/.test(s)) s='https://www.youtube.com/watch?v='+s;
@@ -539,17 +705,32 @@ document.getElementById('btnMake').addEventListener('click', async ()=>{
       const text=new TextDecoder().decode(new Uint8Array(buf)); const lines=text.split(/\r?\n/).filter(x=>x.trim()); const headers=lines.shift().split(/;|,|\t/).map(s=>s.trim());
       for(const line of lines){ const parts=line.split(/;|,|\t/); const obj={}; headers.forEach((h,i)=>obj[h]=parts[i]||''); rows.push(obj); }
     }else{
-      const wb=XLSX.read(buf,{type:'array'}); if(!wb.SheetNames?.length){ say('Aucune feuille'); return; } const ws=wb.Sheets[wb.SheetNames[0]]; rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      const wb=XLSX.read(buf,{type:'array', cellFormula:false, cellHTML:false, cellStyles:false}); if(!wb.SheetNames?.length){ say('Aucune feuille'); return; } const ws=wb.Sheets[wb.SheetNames[0]]; rows=XLSX.utils.sheet_to_json(ws,{defval:''});
     }
     if(!rows.length){ say('Aucune donnée'); return; }
     say(`${rows.length} ligne(s) lue(s). Génération des fiches depuis musique.xlsx…`, true);
     const mapped = rows.map(ensureKeys); const groups = chunk(mapped,4);
     pagesEl.innerHTML='';
+
+    // Affichage immédiat des fiches : le rendu ne dépend plus des recherches réseau.
+    const jobs = [];
+    const langDefault = document.getElementById('lang').value||'fr';
+
     for(const g of groups){
       const page=document.createElement('section'); page.className='page';
-      for(const r of g){ const card=makeCard(r); page.appendChild(card); await fillCard(card, r, document.getElementById('lang').value||'fr'); }
+      for(const r of g){
+        const card=makeCard(r);
+        page.appendChild(card);
+        jobs.push(fillCard(card, r, langDefault));
+      }
       pagesEl.appendChild(page);
     }
+
+    say(`⚡ ${mapped.length} fiches affichées — chargement des photos et QR en arrière-plan…`, true);
+
+    // Toutes les recherches indépendantes partent en parallèle.
+    await Promise.allSettled(jobs);
+
     say(`✅ Fiches générées : ${mapped.length}`, true);
   }catch(e){ console.error(e); say('Erreur : '+e.message); alert('Erreur : '+e.message); }
 });
@@ -592,7 +773,7 @@ document.getElementById('btnPDF').addEventListener('click', async ()=>{
       }
       let buf;
       try{
-        const resp = await fetch(absURL + "?ts=" + Date.now(), {cache:'no-store'});
+        const resp = await fetch(absURL, {cache:'default'});
         if(!resp.ok) throw new Error('HTTP '+resp.status);
         buf = await resp.arrayBuffer();
       }catch(e){
