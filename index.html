@@ -479,8 +479,8 @@ input#titre, input#origine, input#youtube, input#auteur, input#artiste, input#in
   #viewDetail .author-photo-box{min-height:120px;}
 </style>
 <script id="artistCalendarPhotoLogic">
-// Désactivé : le calendrier utilise exclusivement getAuthorImageUrl(),
-// qui recherche l’artiste et jamais le titre du morceau.
+// Le calendrier utilise getAuthorImageUrl() ; certains morceaux spécifiques
+// peuvent imposer leur propre photo (ex. Siyahamba).
 </script>
 
 <style id="calendarPhotoTextFinal">
@@ -885,6 +885,12 @@ let cur = new Date();
 let curY = cur.getUTCFullYear(), curM = cur.getUTCMonth();
 
 async function getAuthorImageUrl(author, title){
+  // SIYAHAMBA : même URL que la fiche, sans aucune autre recherche.
+  const __titleKey = String(title || "")
+    .normalize("NFD").replace(/[\\u0300-\\u036f]/g,"")
+    .toLowerCase().trim();
+  if(window.isSiyahambaTitle && window.isSiyahambaTitle(title)) return window.SIYAHAMBA_PHOTO_URL;
+
   // Recherche photo inspirée au plus près d'index-13 :
   // - priorité aux artistes connus / désambiguïsés ;
   // - recherche musicale ciblée ;
@@ -903,9 +909,25 @@ async function getAuthorImageUrl(author, title){
     "clou": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Clou%20Cigale%2018-11-2021.jpg",
     "hervé": "https://commons.wikimedia.org/wiki/Special:Redirect/file/P2N2023Herve_1.jpg",
     "herve": "https://commons.wikimedia.org/wiki/Special:Redirect/file/P2N2023Herve_1.jpg",
-    "the hu": "https://commons.wikimedia.org/wiki/Special:Redirect/file/2019%20RiP%20The%20Hu%20-%20by%202eight%20-%20ZSC2060.jpg"
+    "the hu": "https://commons.wikimedia.org/wiki/Special:Redirect/file/2019%20RiP%20The%20Hu%20-%20by%202eight%20-%20ZSC2060.jpg",
+    "eloïz": "https://storage.gra.cloud.ovh.net/v1/AUTH_1db17c9a9c714ce39f508d240f11d920/octopus-bucket/1d49d413-ed4f-41c7-9ae5-35dfcb3dad7c/6240c0ff-e534-43f6-9d84-88476d7ff03b.jpg",
+    "eloiz": "https://storage.gra.cloud.ovh.net/v1/AUTH_1db17c9a9c714ce39f508d240f11d920/octopus-bucket/1d49d413-ed4f-41c7-9ae5-35dfcb3dad7c/6240c0ff-e534-43f6-9d84-88476d7ff03b.jpg"
   };
   if(KNOWN_ARTIST_PHOTOS[key]) return KNOWN_ARTIST_PHOTOS[key];
+
+  // Pierre Garnier : même page exacte que la fiche.
+  // Cette résolution passe avant les anciens caches pour garantir la même photo.
+  if(key === "pierre garnier"){
+    try{
+      const u = `https://fr.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent("Pierre Garnier (chanteur)".replaceAll(" ","_"))}`;
+      const r = await fetch(u);
+      if(r.ok){
+        const j = await r.json();
+        const exactImg = j?.originalimage?.source || j?.thumbnail?.source || "";
+        if(exactImg) return exactImg;
+      }
+    }catch(e){}
+  }
 
   // Utiliser les caches déjà construits par index-13.
   for(const prefix of ["UNIFIED_ARTIST_IMG_V2_","CALENDAR_ARTIST_IMG_V1_","AUTHOR_IMG_"]){
@@ -936,6 +958,19 @@ async function getAuthorImageUrl(author, title){
       const j = await r.json();
       return j?.query?.search?.[0]?.title || "";
     }catch(e){ return ""; }
+  }
+
+  // Pierre Garnier : dernier essai exact avant toute recherche générique.
+  if(key === "pierre garnier"){
+    try{
+      const u = `https://fr.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent("Pierre Garnier (chanteur)".replaceAll(" ","_"))}`;
+      const r = await fetch(u);
+      if(r.ok){
+        const j = await r.json();
+        const exactImg = j?.originalimage?.source || j?.thumbnail?.source || "";
+        if(exactImg) return exactImg;
+      }
+    }catch(e){}
   }
 
   // 1. Exactement comme le moteur calendrier d'index-13 :
@@ -2085,15 +2120,63 @@ parseHash();
     return String.fromCodePoint(first) + String.fromCodePoint(second);
   }
 
+  function normalizeCountryKey(s){
+    return String(s || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[’'`]/g, "")
+      .replace(/[–—]/g, "-")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  const COUNTRY_MAP_NORMALIZED = {};
+  Object.keys(COUNTRY_MAP).forEach(key => {
+    COUNTRY_MAP_NORMALIZED[normalizeCountryKey(key)] = COUNTRY_MAP[key];
+  });
+
+  // Variantes qui doivent impérativement produire un drapeau.
+  Object.assign(COUNTRY_MAP_NORMALIZED, {
+    "afrique du sud":"ZA",
+    "south africa":"ZA",
+    "za":"ZA",
+    "cameroun":"CM",
+    "cameroon":"CM",
+    "coree du sud":"KR",
+    "south korea":"KR",
+    "nouvelle zelande":"NZ",
+    "new zealand":"NZ",
+    "nigeria":"NG",
+    "cap vert":"CV",
+    "cape verde":"CV",
+    "mongolie":"MN",
+    "mongolia":"MN",
+    "cuba":"CU",
+    "iran":"IR",
+    "argentine":"AR",
+    "islande":"IS",
+    "cote d'ivoire":"CI",
+    "cote divoire":"CI",
+    "ivory coast":"CI"
+  });
+
   function extractCountryCode(origin){
     if(!origin) return "";
-    const s = origin.toLowerCase().normalize("NFD").replace(/\p{Diacritic}+/gu,"").trim();
-    // try exact map hit
-    if(COUNTRY_MAP[s]) return COUNTRY_MAP[s];
-    // try contains
-    for(const key of Object.keys(COUNTRY_MAP)){
-      if(s.includes(key)) return COUNTRY_MAP[key];
+    const s = normalizeCountryKey(origin);
+
+    if(COUNTRY_MAP_NORMALIZED[s]) return COUNTRY_MAP_NORMALIZED[s];
+
+    // Plus longue correspondance d'abord pour éviter les collisions.
+    const keys = Object.keys(COUNTRY_MAP_NORMALIZED)
+      .filter(k => k.length > 2)
+      .sort((a,b) => b.length - a.length);
+
+    for(const key of keys){
+      if(s === key || s.includes(key)) return COUNTRY_MAP_NORMALIZED[key];
     }
+
+    if(/^[a-z]{2}$/.test(s)) return s.toUpperCase();
     return "";
   }
 
@@ -2918,34 +3001,28 @@ document.addEventListener("DOMContentLoaded", () => {
     return j?.query?.search?.[0]?.title || null;
   }
   async function findArtistImageFichesStyle(data, langDefault){
-    // data: {Auteur, Titre, Lang, Photo}
-    // 1) URL fournie en priorité
-    if(data?.Photo && /^https?:\/\//i.test(String(data.Photo).trim())) return String(data.Photo).trim();
-    const langs = [];
-    const base = (data?.Lang || langDefault || 'fr').trim().toLowerCase();
-    if(base) langs.push(base);
-    for(const L of ['fr','en','es','de','it']) if(!langs.includes(L)) langs.push(L);
+    /*
+      SOURCE UNIQUE DES PHOTOS
+      ------------------------
+      La fiche ne fait plus sa propre recherche Wikipédia.
+      Elle appelle exactement le même moteur que le calendrier :
+      getAuthorImageUrl(author, title).
 
-    const queries = [];
-    if(data?.Auteur) queries.push(data.Auteur);
-    if(data?.Titre)  queries.push(data.Titre);
-    if(data?.Auteur && data?.Titre) queries.push(`${data.Titre} ${data.Auteur}`);
+      Ainsi, pour un même couple artiste + morceau, calendrier et fiche
+      obtiennent exactement la même URL et partagent le même cache.
+    */
+    const author = String(data?.Auteur || "").trim();
+    const title  = String(data?.Titre || "").trim();
 
-    for(const L of langs){
-      for(const q of queries){
-        const img = await fetchWikiSummary(L, q);
-        if(img) return img;
-      }
-      for(const q of queries){
-        const t = await fetchWikiSearch(L, q);
-        if(t){
-          const img = await fetchWikiSummary(L, t);
-          if(img) return img;
-        }
-      }
+    if(typeof window.getAuthorImageUrl === "function"){
+      return await window.getAuthorImageUrl(author, title);
     }
-    return '';
+
+    // Sécurité si le moteur calendrier n'est pas encore exposé.
+    return "";
   }
+
+  window.getAuthorImageUrl = getAuthorImageUrl;
 
   // --- DOM helpers ---
   function setPhotoStatus(msg){
@@ -3136,7 +3213,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const oldGet = window.getAuthorImageUrl;
   if(typeof oldGet !== "function") return;
   window.getAuthorImageUrl = async function(author, title){
-    const k = String(author||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+    const k = [
+      String(author||""),
+      String(title||"")
+    ].map(s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim()).join("|");
     if(memory.has(k)) return memory.get(k);
     const p = Promise.resolve(oldGet(author, title)).then(url=>{
       memory.set(k, url || "");
@@ -3199,8 +3279,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function load(author,title){
-    const k=norm(author);
-    if(!k) return "";
+    const k=norm(author)+"|"+norm(title);
+    if(!author) return "";
+    if(window.isSiyahambaTitle && window.isSiyahambaTitle(title)) return window.SIYAHAMBA_PHOTO_URL;
     if(resolved.has(k)) return resolved.get(k);
     if(inFlight.has(k)) return inFlight.get(k);
 
@@ -3240,8 +3321,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const author=String(item.author||item.auteur||"").trim();
       if(!author) continue;
-      const k=norm(author);
-      if(!jobs.has(k)) jobs.set(k,{author,title:String(item.title||item.titre||""),cells:[]});
+      const title=String(item.title||item.titre||"");
+      const k=norm(author)+"|"+norm(title);
+      if(!jobs.has(k)) jobs.set(k,{author,title,cells:[]});
       jobs.get(k).cells.push(cell);
     }
 
@@ -3284,7 +3366,79 @@ document.addEventListener("DOMContentLoaded", () => {
 })();
 </script>
 
+
+
+
+<script id="siyahambaAuthoritativePhoto">
+(function(){
+  window.SIYAHAMBA_PHOTO_URL = "https://commons.wikimedia.org/wiki/Special:Redirect/file/Siyahamba%20United%20Reformed%20Church%20General%20Assembly%202007.jpg";
+  window.isSiyahambaTitle = function(title){
+    return String(title||"")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g,"")
+      .toLowerCase()
+      .includes("siyahamba");
+  };
+})();
+</script>
+<script id="siyahambaFinalPhotoGuard">
+(function(){
+  function force(){
+    try{
+      const data = window.DATA || window.MUSIC_DATA || [];
+      const byDate = new Map(data.map(x=>[String(x?.date||"").slice(0,10),x]));
+      document.querySelectorAll("[data-date]").forEach(el=>{
+        const d = byDate.get(String(el.getAttribute("data-date")||"").slice(0,10));
+        const t = d?.title || d?.titre || "";
+        if(window.isSiyahambaTitle && window.isSiyahambaTitle(t)){
+          const u = window.SIYAHAMBA_PHOTO_URL;
+          const img = el.querySelector("img");
+          if(img) img.src = u;
+          el.style.backgroundImage = `url("${u}")`;
+        }
+      });
+    }catch(e){}
+  }
+  document.addEventListener("DOMContentLoaded", ()=>setTimeout(force,250));
+  window.addEventListener("hashchange", ()=>setTimeout(force,100));
+  setInterval(force,1200);
+})();
+</script>
+
+<script id="sharedArtistPhotoCache">
+(function(){
+  const memory = window.__SHARED_ARTIST_PHOTOS__ || (window.__SHARED_ARTIST_PHOTOS__ = new Map());
+  const old = window.getAuthorImageUrl;
+  if(typeof old !== "function") return;
+
+  function key(author,title){
+    return [author,title].map(s=>String(s||'')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .toLowerCase().trim()).join('|');
+  }
+
+  window.getAuthorImageUrl = async function(author,title){
+    const k = key(author,title);
+    if(memory.has(k)) return await memory.get(k);
+
+    const p = Promise.resolve(old(author,title)).then(url=>{
+      const u = url || '';
+      memory.set(k, Promise.resolve(u));
+      try{
+        localStorage.setItem('SHARED_ARTIST_PHOTO_V1_'+k, JSON.stringify({url:u}));
+      }catch(e){}
+      return u;
+    });
+
+    memory.set(k,p);
+    return await p;
+  };
+})();
+</script>
+
 </body>
 </html>
+
+
 
 
