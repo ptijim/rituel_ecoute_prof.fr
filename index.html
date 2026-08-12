@@ -467,7 +467,7 @@ input#titre, input#origine, input#youtube, input#auteur, input#artiste, input#in
   }
   #grid .artist-day-photo-overlay{
     position:absolute; inset:0; border-radius:.75rem;
-    background:linear-gradient(to bottom,rgba(0,0,0,.12),rgba(0,0,0,.68)); z-index:1;
+    background:transparent; z-index:1;
   }
   #grid .artist-day-content{position:relative; z-index:2; color:#fff !important; text-shadow:0 1px 3px rgba(0,0,0,.85);}
   #grid .artist-day-content .artist-date{color:#fff !important; font-weight:700;}
@@ -479,92 +479,71 @@ input#titre, input#origine, input#youtube, input#auteur, input#artiste, input#in
   #viewDetail .author-photo-box{min-height:120px;}
 </style>
 <script id="artistCalendarPhotoLogic">
-(function(){
-  const photoCache = new Map();
-  const inflight = new Map();
-  const keyFor = a => 'ARTIST_PHOTO_CACHE_' + String(a||'').trim().toLowerCase();
-  function lsGet(k){ try{return JSON.parse(localStorage.getItem(k)||'null');}catch(e){return null;} }
-  function lsSet(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
-  async function wikiImage(author,title){
-    const name=String(author||'').trim(), t=String(title||'').trim();
-    if(!name && !t) return '';
-    const cached=lsGet(keyFor(name||t));
-    if(cached && cached.url) return cached.url;
-    if(inflight.has(name||t)) return inflight.get(name||t);
-    const promise=(async()=>{
-      const langs=['fr','en','es','de','it'];
-      const queries=[name,t,name&&t?(name+' '+t):''].filter(Boolean);
-      for(const lang of langs){
-        for(const q of queries){
-          try{
-            const api='https://'+lang+'.wikipedia.org/w/api.php?action=query&format=json&origin=*&prop=pageimages|info&inprop=url&piprop=thumbnail&pithumbsize=500&titles='+encodeURIComponent(q);
-            const r=await fetch(api); if(!r.ok) continue;
-            const j=await r.json(); const pages=j?.query?.pages||{}; const first=Object.values(pages)[0];
-            const u=first?.thumbnail?.source || first?.original?.source;
-            if(u){ lsSet(keyFor(name||t),{url:u,credit:first?.fullurl||''}); return u; }
-          }catch(e){}
-        }
-      }
-      return '';
-    })();
-    inflight.set(name||t,promise);
-    const result=await promise; inflight.delete(name||t);
-    return result;
-  }
-  window.__artistPhotoForCalendar=wikiImage;
-
-  function addPhoto(cell,item,dateStr,today){
-    const author=item?.author||item?.auteur||'';
-    const title=item?.title||item?.titre||'';
-    if(!author && !title) return;
-    if(dateStr>today) return; // jamais de photo avant le jour J
-    const token=(cell.dataset.photoToken=String(Date.now())+Math.random());
-    wikiImage(author,title).then(url=>{
-      if(!url || cell.dataset.photoToken!==token) return;
-      const img=document.createElement('img');
-      img.className='artist-day-photo'; img.alt=''; img.loading='lazy'; img.src=url;
-      const ov=document.createElement('div'); ov.className='artist-day-photo-overlay';
-      cell.prepend(ov); cell.prepend(img); cell.classList.add('artist-day-photo-cell');
-    });
-  }
-  window.__decorateArtistCalendar=addPhoto;
-
-  // Rebranche le calendrier après son rendu sans remplacer sa logique métier.
-  const wait=()=>{
-    if(typeof window.renderCalendar!=='function') return setTimeout(wait,50);
-    if(window.__artistCalendarWrapped) return; window.__artistCalendarWrapped=true;
-    const original=window.renderCalendar;
-    window.renderCalendar=function(){
-      original.apply(this,arguments);
-      const today=(window.__profRevealHelpers?.parisTodayYmd?.()||new Date().toISOString().slice(0,10));
-      const map=(typeof window.indexByDate==='function')?window.indexByDate(window.DATA||[]):new Map();
-      document.querySelectorAll('#grid .day').forEach(cell=>{
-        const txt=(cell.querySelector('.text-xs')?.textContent||'').trim();
-        const d=parseInt(txt,10); if(!d) return;
-        const y=(typeof curY!=='undefined'?curY:null), m=(typeof curM!=='undefined'?curM:null);
-        if(typeof y!=='number'||typeof m!=='number') return;
-        const ds=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
-        const item=map.get(ds); if(item) addPhoto(cell,item,ds,today);
-      });
-    };
-  };
-  wait();
-})();
+// Désactivé : le calendrier utilise exclusivement getAuthorImageUrl(),
+// qui recherche l’artiste et jamais le titre du morceau.
 </script>
 
 <style id="calendarPhotoTextFinal">
-/* Calendrier : titre/auteur noirs sans photo, blancs uniquement quand la photo est effectivement chargée. */
-#grid .day .calendar-day-title, #grid .day .calendar-day-author, #grid .day .calendar-day-number {
-  color:#000 !important;
-  text-shadow:none;
-}
-#grid .day.has-artist-photo .calendar-day-title,
-#grid .day.has-artist-photo .calendar-day-author,
-#grid .day.has-artist-photo .calendar-day-number {
+/* Calendrier : texte toujours blanc, opaque et sans fond. */
+#grid .day .calendar-day-title,
+#grid .day .calendar-day-author,
+#grid .day .calendar-day-number,
+#grid .day .artist-name,
+#grid .day .artist-date {
   color:#fff !important;
-  text-shadow:0 1px 3px rgba(0,0,0,.9);
+  -webkit-text-fill-color:#fff !important;
+  opacity:1 !important;
+  mix-blend-mode:normal !important;
+  text-shadow:0 1px 4px rgba(0,0,0,.95) !important;
+}
+#grid .day .calendar-day-title,
+#grid .day .calendar-day-author { background:transparent !important; }
+</style>
+
+<style id="finalOpaqueCalendarTextV2">
+#grid .day .calendar-day-title,
+#grid .day .calendar-day-author,
+#grid .day .calendar-day-number {
+  opacity:1 !important;
+  color:#fff !important;
+  -webkit-text-fill-color:#fff !important;
+  text-shadow:0 2px 4px rgba(0,0,0,.95) !important;
+  mix-blend-mode:normal !important;
 }
 </style>
+
+
+<style id="calendarFastLoading">
+/* Le calendrier est affiché avant le chargement des photos */
+#grid { contain: layout paint; }
+.calendar-artist-photo {
+  content-visibility: auto;
+  contain: paint;
+}
+</style>
+<script id="calendarFastInit">
+(function(){
+  function deferPhotos(){
+    try{
+      if(typeof window.refreshCalendarPhotos === "function"){
+        if("requestIdleCallback" in window) requestIdleCallback(()=>window.refreshCalendarPhotos(), {timeout:1500});
+        else setTimeout(()=>window.refreshCalendarPhotos(), 250);
+      }
+    }catch(e){}
+  }
+  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", deferPhotos, {once:true});
+  else deferPhotos();
+})();
+</script>
+
+
+<style id="fastCalendarPhotoPaint">
+#grid .has-artist-photo{
+  transition:none !important;
+  animation:none !important;
+}
+</style>
+
 </head>
 \1
 
@@ -601,7 +580,7 @@ input#titre, input#origine, input#youtube, input#auteur, input#artiste, input#in
         <div class="md:col-span-2" id="import">
           <input id="file" type="file" accept=".xlsx,.xls,.csv" class="text-sm"/>
           <p class="text-xs text-slate-600 mt-1">
-            Colonnes minimales : <code>date</code>, <code>titre</code>, <code>auteur</code>. Optionnel : <code>origine (pays auteur)</code>, <code>instruments</code>, <code>youtube</code> / <code>lien youtube</code>.
+            Colonnes : <code>Date</code>, <code>Année</code>, <code>Artiste / Compositeur</code>, <code>Œuvre / morceau</code>, <code>Pays</code>, <code>Instruments</code>, <code>Lien YouTube (vérifiée)</code>.
           </p>
           <p id="importStatus" class="text-xs text-emerald-700 mt-1"></p>
         </div>
@@ -768,19 +747,33 @@ async function readFileText(file){
   return await new Promise((resolve, reject)=>{ const fr=new FileReader(); fr.onload=()=>resolve(fr.result); fr.onerror=()=>reject(fr.error); fr.readAsText(file,"utf-8"); });
 }
 function mapHeaders(hdr){
-  const low = hdr.map(h=> lowerNoAccents(String(h||"")));
-  function findOne(names){ for(const name of names){ const idx=low.indexOf(lowerNoAccents(name)); if(idx>=0) return idx; } return -1; }
+  const low = hdr.map(h=> lowerNoAccents(String(h||"")).replace(/[’']/g,"'").replace(/\\s+/g," ").trim());
+  function findOne(names){
+    for(const name of names){
+      const n=lowerNoAccents(name).replace(/[’']/g,"'").replace(/\\s+/g," ").trim();
+      const idx=low.indexOf(n);
+      if(idx>=0) return idx;
+    }
+    return -1;
+  }
   return {
     date: findOne(["date","jour","day"]),
-    titre: findOne(["titre","title","morceau","oeuvre","œuvre","piece"]),
-    auteur: findOne(["auteur","artiste","artist","groupe","interprete","interpret"]),
-    origin: findOne(["origine (pays auteur)","origine","pays"]),
+    titre: findOne(["œuvre / morceau","oeuvre / morceau","œuvre","oeuvre","morceau","titre","title","piece"]),
+    auteur: findOne(["artiste / compositeur","artiste/compositeur","auteur","artiste","artist","groupe","interprete","interprète","interpret"]),
+    origin: findOne(["pays","origine (pays auteur)","origine","country"]),
+    annee: findOne(["année","annee","year","année de création","annee de creation"]),
+    genre: findOne(["genre","style"]),
     instr: findOne(["instruments","instrument"]),
-    yt: findOne(["youtube","lien youtube","url youtube","lien"]),
+    ytVerifiee: findOne(["lien youtube (vérifiée)","lien youtube (verifiee)"]),
+    yt: findOne(["lien youtube","youtube","url youtube","lien"]),
   };
 }
 function toISODate(v){
   if (v == null) return "";
+  // Date JavaScript (XLSX peut retourner des objets Date selon les options)
+  if (v instanceof Date && !isNaN(v.getTime())){
+    return `${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,"0")}-${String(v.getDate()).padStart(2,"0")}`;
+  }
   // Excel serial number
   if (typeof v === "number" && window.XLSX && XLSX.SSF && XLSX.SSF.parse_date_code){
     try{
@@ -822,7 +815,10 @@ async function importFile(file){
   if(!rows.length){ importStatus.textContent = "Fichier vide."; return; }
   const hdr = (rows[0]||[]).map(x=> String(x||"").trim());
   const map = mapHeaders(hdr);
-  if(map.date<0 || map.titre<0 || map.auteur<0){ importStatus.textContent = "Colonnes minimales manquantes : date, titre, auteur."; return; }
+  if(map.date<0 || map.titre<0 || map.auteur<0){
+    importStatus.textContent = "Colonnes minimales manquantes. En-têtes détectés : " + hdr.join(" | ");
+    return;
+  }
 
   let inserted=0;
   // Replace: start fresh
@@ -832,12 +828,18 @@ async function importFile(file){
     if(!date) continue;
     const obj = {
       date,
-      title: norm(r[map.titre]),
-      auteur: norm(r[map.auteur]) || norm(r[map.author]),
-      author: norm(r[map.auteur]) || norm(r[map.author]),
+      title: map.titre>=0 ? norm(r[map.titre]) : "",
+      titre: map.titre>=0 ? norm(r[map.titre]) : "",
+      auteur: map.auteur>=0 ? norm(r[map.auteur]) : "",
+      author: map.auteur>=0 ? norm(r[map.auteur]) : "",
       origin: map.origin>=0 ? norm(r[map.origin]) : "",
       instruments: map.instr>=0 ? norm(r[map.instr]) : "",
-      youtube: map.yt>=0 ? norm(r[map.yt]) : "",
+      year: map.annee>=0 ? norm(r[map.annee]) : "",
+      annee: map.annee>=0 ? norm(r[map.annee]) : "",
+      genre: map.genre>=0 ? norm(r[map.genre]) : "",
+      youtube: map.ytVerifiee>=0 ? norm(r[map.ytVerifiee]) : (map.yt>=0 ? norm(r[map.yt]) : ""),
+      "lien youtube": map.ytVerifiee>=0 ? norm(r[map.ytVerifiee]) : (map.yt>=0 ? norm(r[map.yt]) : ""),
+      "lien youtube (vérifiée)": map.ytVerifiee>=0 ? norm(r[map.ytVerifiee]) : ""
     };
     dataMap.set(date, obj);
     inserted++;
@@ -883,94 +885,138 @@ let cur = new Date();
 let curY = cur.getUTCFullYear(), curM = cur.getUTCMonth();
 
 async function getAuthorImageUrl(author, title){
-  const name = (author||"").trim();
-  const song = (title||"").trim();
-  if(!name && !song) return "";
+  // Recherche photo inspirée au plus près d'index-13 :
+  // - priorité aux artistes connus / désambiguïsés ;
+  // - recherche musicale ciblée ;
+  // - puis recherche directe du nom de l'artiste dans plusieurs Wikipédias ;
+  // - le titre du morceau n'est JAMAIS utilisé pour choisir la photo.
+  const name = String(author || "").trim();
+  if(!name) return "";
 
-  // Cache versionné : une ancienne mauvaise correspondance ne bloque pas une nouvelle recherche.
-  const CACHE_KEY = "AUTHOR_IMG_V3_" + (name + "|" + song).toLowerCase();
-  const cached = cacheGet(CACHE_KEY);
-  if(cached && cached.url) return cached.url;
+  const key = name.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
 
+  const KNOWN_ARTIST_PHOTOS = {
+    "pomme": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Pomme%20Bourges%20Autoharpe.jpg",
+    "indochine": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Indochine%202009.JPG",
+    "téléphone": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Festival%20des%20Vieilles%20Charrues%202016%20-%20Les%20Insus%20-%20039.jpg",
+    "telephone": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Festival%20des%20Vieilles%20Charrues%202016%20-%20Les%20Insus%20-%20039.jpg",
+    "clou": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Clou%20Cigale%2018-11-2021.jpg",
+    "hervé": "https://commons.wikimedia.org/wiki/Special:Redirect/file/P2N2023Herve_1.jpg",
+    "herve": "https://commons.wikimedia.org/wiki/Special:Redirect/file/P2N2023Herve_1.jpg",
+    "the hu": "https://commons.wikimedia.org/wiki/Special:Redirect/file/2019%20RiP%20The%20Hu%20-%20by%202eight%20-%20ZSC2060.jpg"
+  };
+  if(KNOWN_ARTIST_PHOTOS[key]) return KNOWN_ARTIST_PHOTOS[key];
+
+  // Utiliser les caches déjà construits par index-13.
+  for(const prefix of ["UNIFIED_ARTIST_IMG_V2_","CALENDAR_ARTIST_IMG_V1_","AUTHOR_IMG_"]){
+    try{
+      const raw = localStorage.getItem(prefix + key);
+      if(raw){
+        const obj = JSON.parse(raw);
+        if(obj && obj.url) return obj.url;
+      }
+    }catch(e){}
+  }
+
+  async function wikiSummary(lang, pageTitle){
+    try{
+      const u = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(String(pageTitle).replaceAll(" ","_"))}`;
+      const r = await fetch(u);
+      if(!r.ok) return "";
+      const j = await r.json();
+      return j?.originalimage?.source || j?.thumbnail?.source || "";
+    }catch(e){ return ""; }
+  }
+
+  async function wikiSearch(lang, query){
+    try{
+      const u = `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*`;
+      const r = await fetch(u);
+      if(!r.ok) return "";
+      const j = await r.json();
+      return j?.query?.search?.[0]?.title || "";
+    }catch(e){ return ""; }
+  }
+
+  // 1. Exactement comme le moteur calendrier d'index-13 :
+  // trois requêtes musicales en français.
+  const targeted = [
+    `${name} chanteur`,
+    `${name} musicien`,
+    `${name} groupe musical`
+  ];
+
+  try{
+    const found = await Promise.all(targeted.map(q => wikiSearch("fr", q)));
+    for(const page of found){
+      if(!page) continue;
+      const img = await wikiSummary("fr", page);
+      if(img){
+        try{
+          localStorage.setItem("UNIFIED_ARTIST_IMG_V2_"+key, JSON.stringify({url:img}));
+          localStorage.setItem("CALENDAR_ARTIST_IMG_V1_"+key, JSON.stringify({url:img}));
+          localStorage.setItem("AUTHOR_IMG_"+key, JSON.stringify({url:img, credit:"Source : Wikipedia/Wikimedia Commons"}));
+        }catch(e){}
+        return img;
+      }
+    }
+  }catch(e){}
+
+  // 2. Comme index-13, dernier recours anglais.
+  try{
+    const page = await wikiSearch("en", `${name} musician`);
+    if(page){
+      const img = await wikiSummary("en", page);
+      if(img){
+        try{
+          localStorage.setItem("UNIFIED_ARTIST_IMG_V2_"+key, JSON.stringify({url:img}));
+          localStorage.setItem("CALENDAR_ARTIST_IMG_V1_"+key, JSON.stringify({url:img}));
+          localStorage.setItem("AUTHOR_IMG_"+key, JSON.stringify({url:img, credit:"Source : Wikipedia/Wikimedia Commons"}));
+        }catch(e){}
+        return img;
+      }
+    }
+  }catch(e){}
+
+  // 3. Ce qui manquait dans la version précédente :
+  // recherche directe de la page de l'artiste, sans jamais utiliser le titre.
+  // On reprend le principe de findArtistImageFichesStyle d'index-13.
   const langs = ["fr","en","es","de","it"];
-  const queries = [];
-  if(name) queries.push('"' + name + '"');
-  if(song && name) queries.push('"' + song + '" "' + name + '"');
-  if(song) queries.push('"' + song + '"');
-
-  // Vérifie réellement que l'URL est une image exploitable dans le navigateur.
-  function verifyImage(url){
-    return new Promise(resolve=>{
-      if(!url) return resolve(false);
-      const im = new Image();
-      let done=false;
-      const finish=v=>{ if(done)return; done=true; clearTimeout(timer); resolve(v); };
-      const timer=setTimeout(()=>finish(false),7000);
-      im.onload=()=>finish(im.naturalWidth>40 && im.naturalHeight>40);
-      im.onerror=()=>finish(false);
-      im.src=url;
-    });
-  }
-
-  async function pageImage(lang, title){
-    try{
-      const u="https://"+lang+".wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1&prop=pageimages|info&inprop=url&piprop=thumbnail&pithumbsize=800&titles="+encodeURIComponent(title);
-      const r=await fetch(u,{cache:"no-store"});
-      if(!r.ok) return null;
-      const j=await r.json();
-      const pages=j?.query?.pages||{};
-      const page=Object.values(pages)[0];
-      const url=page?.thumbnail?.source || page?.original?.source || "";
-      return url ? {url,credit:page?.fullurl||"Source : Wikipédia"} : null;
-    }catch(e){ return null; }
-  }
-
-  async function searchTitles(lang,q){
-    try{
-      const u="https://"+lang+".wikipedia.org/w/api.php?action=query&list=search&srsearch="+encodeURIComponent(q)+"&format=json&origin=*&srlimit=8&srnamespace=0";
-      const r=await fetch(u,{cache:"no-store"});
-      if(!r.ok) return [];
-      const j=await r.json();
-      return (j?.query?.search||[]).map(x=>x.title).filter(Boolean);
-    }catch(e){ return []; }
-  }
-
-  const tried=new Set();
-  async function tryTitle(lang,t){
-    const key=lang+'|'+t.toLowerCase();
-    if(tried.has(key)) return "";
-    tried.add(key);
-    const result=await pageImage(lang,t);
-    if(result && await verifyImage(result.url)){
-      cacheSet(CACHE_KEY,{url:result.url,credit:result.credit||"Source : Wikipédia"});
-      return result.url;
-    }
-    return "";
-  }
-
   for(const lang of langs){
-    // 1. Page directe de l'artiste (PSY, Stromae, etc.).
-    if(name){
-      const img=await tryTitle(lang,name);
-      if(img) return img;
+    const direct = await wikiSummary(lang, name);
+    if(direct){
+      try{
+        localStorage.setItem("UNIFIED_ARTIST_IMG_V2_"+key, JSON.stringify({url:direct}));
+        localStorage.setItem("CALENDAR_ARTIST_IMG_V1_"+key, JSON.stringify({url:direct}));
+        localStorage.setItem("AUTHOR_IMG_"+key, JSON.stringify({url:direct, credit:"Source : Wikipedia/Wikimedia Commons"}));
+      }catch(e){}
+      return direct;
     }
+  }
 
-    // 2. Recherche combinée artiste + morceau : utile notamment pour Gangnam Style / PSY.
-    for(const q of queries){
-      const titles=await searchTitles(lang,q);
-      for(const t of titles){
-        const img=await tryTitle(lang,t);
-        if(img) return img;
+  // 4. Recherche directe Wikipédia avec qualification musicale.
+  for(const lang of langs){
+    for(const q of [`${name} musicien`, `${name} chanteur`, `${name} groupe`]){
+      const page = await wikiSearch(lang, q);
+      if(!page) continue;
+      const img = await wikiSummary(lang, page);
+      if(img){
+        try{
+          localStorage.setItem("UNIFIED_ARTIST_IMG_V2_"+key, JSON.stringify({url:img}));
+          localStorage.setItem("CALENDAR_ARTIST_IMG_V1_"+key, JSON.stringify({url:img}));
+          localStorage.setItem("AUTHOR_IMG_"+key, JSON.stringify({url:img, credit:"Source : Wikipedia/Wikimedia Commons"}));
+        }catch(e){}
+        return img;
       }
     }
   }
+
   return "";
 }
-
 function paintCalendarCellPhoto(cell, url){
   if(!cell || !url) return;
   const safeUrl = String(url).replace(/"/g,'\\"');
-  cell.style.backgroundImage = `linear-gradient(rgba(0,0,0,.18),rgba(0,0,0,.62)), url("${safeUrl}")`;
+  cell.style.backgroundImage = `url("${safeUrl}")`;
   cell.style.backgroundSize = "cover";
   cell.style.backgroundPosition = "center";
   cell.classList.add("has-artist-photo");
@@ -1016,19 +1062,24 @@ try{ if(!window.__gridCleared__){ resetCalendarUI(); } }catch(e){}
     const cell = document.createElement("button");
     cell.type="button";
     cell.className = "day rounded-xl border w-full text-left p-2 " + (has ? "bg-emerald-50 border-emerald-200" : "bg-white");
-    cell.innerHTML = `<div class="calendar-day-number text-xs ${has ? 'text-slate-500' : 'text-slate-500'}">${d}</div>` + (has ? `<div class="calendar-day-title mt-1 font-semibold text-sm line-clamp-3">${htmlEscape(item.title || item.titre || "Titre")}</div><div class="calendar-day-author text-xs line-clamp-1">${htmlEscape(item.author || item.auteur || "")}</div>` : `<div class="text-xs text-slate-400 mt-1">—</div>`);
+    const __title = item.title || item.titre || "Titre";
+    const __year = item.year || item.annee || "";
+    const __author = item.author || item.auteur || "";
+    const __titleWithYear = __year ? `${__title} (${__year})` : __title;
+    cell.innerHTML = `<div class="calendar-day-number text-xs ${has ? 'text-slate-500' : 'text-slate-500'}">${d}</div>` + (has ? `<div class="calendar-day-title mt-1 font-semibold text-sm line-clamp-3">${htmlEscape(__titleWithYear)}</div><div class="calendar-day-author text-xs line-clamp-1">${htmlEscape(__author)}</div>` : `<div class="text-xs text-slate-400 mt-1">—</div>`);
 
-    // Quand le mode « Révéler la fiche uniquement le jour J » est désactivé,
-    // la photo doit être visible même pour les dates futures.
-    // Quand il est activé, les dates futures restent totalement masquées.
+    // Les recherches de photos sont regroupées par artiste et lancées après
+    // la construction du calendrier : le rendu des cases n'attend plus les API.
     if(has && (!__lockOn || dateStr <= __today)){
-      const authorName = item.author || item.auteur || "";
-      getAuthorImageUrl(authorName, item.title || item.titre || "").then(url=>{
-        if(!document.body.contains(cell)) return;
-        if(__lockOn && dateStr > __today) return;
-        if(url) paintCalendarCellPhoto(cell,url);
-        else clearCalendarCellPhoto(cell);
-      });
+      if(!window.__calendarPhotoJobs) window.__calendarPhotoJobs = new Map();
+      const authorName = String(item.author || item.auteur || "").trim();
+      const photoKey = authorName.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+      if(authorName){
+        if(!window.__calendarPhotoJobs.has(photoKey)){
+          window.__calendarPhotoJobs.set(photoKey, {author:authorName, title:item.title || item.titre || "", cells:[]});
+        }
+        window.__calendarPhotoJobs.get(photoKey).cells.push({cell, dateStr});
+      }
     }
     if(__lockOn && has && !(dateStr <= __today)){
       cell.classList.add("opacity-70","cursor-not-allowed");
@@ -1060,6 +1111,35 @@ try{ if(!window.__gridCleared__){ resetCalendarUI(); } }catch(e){}
       list.appendChild(row);
     }
   }
+
+  // Photos : une seule recherche par artiste, toutes lancées en parallèle.
+  const photoJobsNow = window.__calendarPhotoJobs || new Map();
+  window.__calendarPhotoJobs = new Map();
+
+  if(photoJobsNow.size){
+    Promise.all(Array.from(photoJobsNow.values()).map(async job => {
+      let url = "";
+      try { url = await getAuthorImageUrl(job.author, job.title); } catch(e) {}
+      if(!url) return;
+
+      // Précharge l'image : elle est téléchargée pendant la résolution des autres artistes.
+      const preload = new Image();
+      preload.decoding = "async";
+      preload.fetchPriority = "high";
+      preload.src = url;
+      try {
+        if(preload.decode) await preload.decode();
+      } catch(e) {}
+
+      for(const target of job.cells){
+        const cell = target.cell;
+        if(!document.body.contains(cell)) continue;
+        if(__lockOn && target.dateStr > __today) continue;
+        paintCalendarCellPhoto(cell, url);
+      }
+    }));
+  }
+
   countMonth.textContent = usedThisMonth;
 }
 document.getElementById("prev").addEventListener("click", ()=>{ curM--; if(curM<0){curM=11;curY--;} renderCalendar(); });
@@ -1104,7 +1184,9 @@ function renderDetail(dateStr){
   const data = indexByDate(DATA);
   const item = data.get(dateStr) || {};
   document.getElementById("dateLbl").textContent = dateStr || "—";
-  document.getElementById("titre").textContent = item.title || item.titre || "—";
+  const __detailTitle = item.title || item.titre || "—";
+  const __detailYear = item.year || item.annee || "";
+  document.getElementById("titre").textContent = __detailYear ? `${__detailTitle} (${__detailYear})` : __detailTitle;
   const __auth = item.author || item.auteur || "—";
   document.getElementById("auteur").innerHTML = linkifySingle(__auth);
   document.getElementById("origine").textContent = item.origin || item["origine (pays auteur)"] || "—";
@@ -2433,35 +2515,7 @@ try{ rows = normalizeImportedData(rows); }catch(e){}
 </script>
 
 
-    <script>
-    // --- Injected: clear previous calendar before a new import/render ---
-    function resetCalendarUI(){
-  try { localStorage.removeItem("MUSIC_DATA_JSON"); } catch(e){}
-  try { window.MUSIC_DATA = []; } catch(e){}
-  try { window.DATA = []; } catch(e){}
-  try { if (typeof dataMap !== "undefined") { dataMap = new Map(); } } catch(e){}
-  try {
-    const grid = document.getElementById("grid");
-    const list = document.getElementById("list");
-    const monthLbl = document.getElementById("monthLbl");
-    const yearLbl = document.getElementById("yearLbl");
-    const countMonth = document.getElementById("countMonth");
-    if (grid) grid.innerHTML = "";
-    if (list) list.innerHTML = "";
-    if (monthLbl) monthLbl.textContent = "—";
-    if (yearLbl) yearLbl.textContent = "—";
-    if (countMonth) countMonth.textContent = "0";
-  } catch(e){}
-}
-grid.innerHTML=''; window.__gridCleared__ = true;if(grid){ grid.innerHTML = ''; }
-        // Optional: clear any selection/preview containers if present
-        const preview = document.getElementById('viewFiche') || document.getElementById('fiche');
-        if(preview){ /* keep content; only grid must be reset */ }
-        // Tag that we reset before repopulating
-        window.__gridCleared__ = true;
-      }catch(e){ /* noop */ }
-    }
-    </script>
+
     
 
 <script>
@@ -2790,31 +2844,34 @@ if(grid){ grid.innerHTML=''; window.__gridCleared__=true; }if(grid){ grid.scroll
 <!-- === AUTOLOAD musique.xlsx (même répertoire) === -->
 <script>
 (function(){
-  const RELATIVE_PATH = "musique.xlsx";
+  const RELATIVE_PATHS = ["musique(2).xlsx", "musique.xlsx"];
   function ready(fn){ if(document.readyState!=="loading") fn(); else document.addEventListener("DOMContentLoaded", fn); }
   ready(async function(){
     try{
-      const absURL = new URL(RELATIVE_PATH, document.baseURI).href;
-      let buf;
-      try{
-        const resp = await fetch(absURL, {cache:'no-store'});
-        if(!resp.ok) throw new Error("HTTP "+resp.status);
-        buf = await resp.arrayBuffer();
-      }catch(e){
+      let loaded = false;
+      let lastError = null;
+      for(const RELATIVE_PATH of RELATIVE_PATHS){
+        try{
+          const absURL = new URL(RELATIVE_PATH, document.baseURI).href;
+          const resp = await fetch(absURL, {cache:"no-store"});
+          if(!resp.ok) throw new Error("HTTP "+resp.status);
+          const buf = await resp.arrayBuffer();
+          const file = new File([buf], RELATIVE_PATH, {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+          if(window.importFile){
+            await importFile(file);
+            loaded = true;
+            break;
+          }
+        }catch(e){ lastError=e; }
+      }
+      if(!loaded){
         const st = document.getElementById("importStatus") || document.body;
         const p = document.createElement("div");
         p.style.color="#b91c1c"; p.style.margin="8px 0";
         p.textContent = (location.protocol==="file:")
-          ? "⚠ Chargement auto bloqué en file://. Utilisez un petit serveur local (ex. python -m http.server)."
-          : ("⚠ Impossible de charger musique.xlsx ("+e.message+")");
+          ? "⚠ Chargement automatique bloqué en file://. Utilisez un petit serveur local."
+          : ("⚠ Impossible de charger musique(2).xlsx ou musique.xlsx ("+(lastError?.message||"erreur")+")");
         st.appendChild(p);
-        return;
-      }
-      const file = new File([buf], "musique.xlsx", {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
-      if(window.importFile){
-        await importFile(file);
-      }else{
-        console.warn("importFile non trouvé");
       }
     }catch(err){
       const st = document.getElementById("importStatus") || document.body;
@@ -3026,5 +3083,208 @@ document.addEventListener("DOMContentLoaded", () => {
 })();
 </script>
 
+
+<!-- FIX FINAL: bouton Retour au calendrier -->
+<script id="fixBackToCalendar">
+(function(){
+  function goBackToCalendar(ev){
+    if(ev){
+      ev.preventDefault();
+      ev.stopPropagation();
+      if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+    }
+    const detail = document.getElementById("viewDetail");
+    const calendar = document.getElementById("viewCalendar");
+    if(detail) { detail.classList.add("hidden"); detail.classList.remove("show"); }
+    if(calendar) { calendar.classList.remove("hidden"); calendar.classList.add("show"); }
+    try { if(typeof renderCalendar === "function") renderCalendar(); } catch(e) {}
+    try {
+      if(location.hash !== "#/") history.pushState(null, "", location.pathname + location.search + "#/");
+    } catch(e) {
+      try { location.hash = "#/"; } catch(_) {}
+    }
+  }
+  document.addEventListener("click", function(ev){
+    const btn = ev.target && ev.target.closest ? ev.target.closest("#backBtn") : null;
+    if(btn) goBackToCalendar(ev);
+  }, true);
+  document.addEventListener("DOMContentLoaded", function(){
+    const btn=document.getElementById("backBtn");
+    if(btn && !btn.__finalBackBound){
+      btn.__finalBackBound=true;
+      btn.addEventListener("click", goBackToCalendar, true);
+    }
+  });
+})();
+</script>
+
+<style id="finalOpaqueCalendarText">
+#grid .day .calendar-day-title,
+#grid .day .calendar-day-author,
+#grid .day .calendar-day-number {
+  opacity:1 !important;
+  color:#fff !important;
+  -webkit-text-fill-color:#fff !important;
+  text-shadow:0 2px 4px rgba(0,0,0,.95) !important;
+  mix-blend-mode:normal !important;
+}
+</style>
+
+<script id="fastPhotoMemoryCache">
+(function(){
+  const memory = new Map();
+  const oldGet = window.getAuthorImageUrl;
+  if(typeof oldGet !== "function") return;
+  window.getAuthorImageUrl = async function(author, title){
+    const k = String(author||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+    if(memory.has(k)) return memory.get(k);
+    const p = Promise.resolve(oldGet(author, title)).then(url=>{
+      memory.set(k, url || "");
+      return url || "";
+    });
+    memory.set(k, p);
+    const result = await p;
+    memory.set(k, result);
+    return result;
+  };
+})();
+</script>
+
+
+<style id="calendarPhotoAllMonthsFix">
+#grid .has-artist-photo{
+  background-size:cover !important;
+  background-position:center !important;
+  background-repeat:no-repeat !important;
+}
+</style>
+<script id="calendarPhotoAllMonthsFixScript">
+(function(){
+  "use strict";
+
+  let runId = 0;
+  const inFlight = new Map();
+  const resolved = new Map();
+
+  function norm(s){
+    return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+  }
+
+  function dataArray(){
+    if(Array.isArray(window.DATA) && window.DATA.length) return window.DATA;
+    if(Array.isArray(window.MUSIC_DATA) && window.MUSIC_DATA.length) return window.MUSIC_DATA;
+    try{
+      const a = JSON.parse(localStorage.getItem("MUSIC_DATA_JSON") || "[]");
+      if(Array.isArray(a)) return a;
+    }catch(e){}
+    return [];
+  }
+
+  function dateForCell(cell){
+    if(cell.dataset.date) return cell.dataset.date;
+    const n = cell.querySelector(".calendar-day-number, div");
+    const day = parseInt((n?.textContent || "").trim(),10);
+    if(!day) return "";
+    const y = (typeof curY !== "undefined") ? curY : new Date().getFullYear();
+    const m = (typeof curM !== "undefined") ? curM : new Date().getMonth();
+    return `${y}-${String(m+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+  }
+
+  function paint(cell,url){
+    if(!cell || !url || !document.body.contains(cell)) return;
+    cell.style.backgroundImage = `url("${String(url).replace(/"/g,'\\"')}")`;
+    cell.style.backgroundSize = "cover";
+    cell.style.backgroundPosition = "center";
+    cell.classList.add("has-artist-photo");
+  }
+
+  async function load(author,title){
+    const k=norm(author);
+    if(!k) return "";
+    if(resolved.has(k)) return resolved.get(k);
+    if(inFlight.has(k)) return inFlight.get(k);
+
+    const p = (async()=>{
+      try{
+        const url = await window.getAuthorImageUrl(author,title);
+        resolved.set(k,url||"");
+        return url||"";
+      }catch(e){
+        resolved.set(k,"");
+        return "";
+      }
+    })();
+    inFlight.set(k,p);
+    try { return await p; }
+    finally { inFlight.delete(k); }
+  }
+
+  function refresh(){
+    const grid=document.getElementById("grid");
+    if(!grid || typeof window.getAuthorImageUrl !== "function") return;
+
+    const thisRun=++runId;
+    const arr=dataArray();
+    const byDate=new Map(arr.map(x=>[String(x?.date||"").slice(0,10),x]));
+    const jobs=new Map();
+
+    for(const cell of grid.querySelectorAll(".day")){
+      const date=dateForCell(cell);
+      const item=byDate.get(date);
+      if(!item) continue;
+
+      // Les dates futures restent sans photo.
+      const lock = typeof __lockOn !== "undefined" ? __lockOn : false;
+      const today = typeof __today !== "undefined" ? __today : new Date().toISOString().slice(0,10);
+      if(lock && date > today) continue;
+
+      const author=String(item.author||item.auteur||"").trim();
+      if(!author) continue;
+      const k=norm(author);
+      if(!jobs.has(k)) jobs.set(k,{author,title:String(item.title||item.titre||""),cells:[]});
+      jobs.get(k).cells.push(cell);
+    }
+
+    // Toutes les photos du mois sont recherchées en parallèle.
+    for(const job of jobs.values()){
+      load(job.author,job.title).then(url=>{
+        if(!url || thisRun!==runId) return;
+        for(const cell of job.cells) paint(cell,url);
+      });
+    }
+  }
+
+  window.__refreshAllCalendarArtistPhotos = refresh;
+
+  // Réapplique la photo après chaque changement de mois.
+  const previous = window.renderCalendar;
+  if(typeof previous === "function"){
+    const wrapped=function(){
+      const result=previous.apply(this,arguments);
+      setTimeout(refresh,0);
+      return result;
+    };
+    wrapped.__calendarPhotoAllMonths=true;
+    window.renderCalendar=wrapped;
+  }
+
+  document.addEventListener("DOMContentLoaded",()=>setTimeout(refresh,20));
+  window.addEventListener("hashchange",()=>setTimeout(refresh,80));
+
+  // Sécurité : si un autre script remplace renderCalendar plus tard,
+  // on relance le scan quand le calendrier est modifié.
+  const grid=document.getElementById("grid");
+  if(grid && window.MutationObserver){
+    const observer=new MutationObserver(()=>{
+      clearTimeout(window.__photoRefreshTimer);
+      window.__photoRefreshTimer=setTimeout(refresh,60);
+    });
+    observer.observe(grid,{childList:true});
+  }
+})();
+</script>
+
 </body>
 </html>
+
+
